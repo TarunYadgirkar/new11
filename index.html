@@ -1,0 +1,1545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Under Cal Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: full-bleed 3D survey model; floating instrument panels (layers left, record card right, controls bottom). Single deliberate night-survey theme in Berkeley Blue + California Gold. */
+:root {
+  color-scheme: dark;
+  --bg: #06112a;
+  --bg-deep: #030a1b;
+  --panel: rgba(9, 21, 48, 0.9);
+  --panel-solid: #0b1a3b;
+  --line: #22355f;
+  --line-soft: rgba(120, 150, 210, 0.16);
+  --fg: #e9edf6;
+  --muted: #98a6c4;
+  --faint: #6a7ba0;
+  --gold: #fdb515;
+  --gold-ink: #1a1300;
+  --steam: #ff7a45;
+  --cec: #6fe3c1;
+  --lib: #ffd36b;
+  --water: #4cb9ff;
+  --fault: #ff5a92;
+  --seis: #b9a0ff;
+  --mine: #e2a46c;
+  --bart: #a9badb;
+  --ctx: #c9d2e6;
+  --f-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 10px;
+  --gap: 12px;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 var(--f-body);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; outline: none; }
+#labels { position: fixed; inset: 0; pointer-events: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* Masthead */
+#masthead {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  left: 16px;
+  width: 300px;
+  padding: 14px 16px 12px;
+  display: grid;
+  gap: 8px;
+  z-index: 5;
+}
+.eyebrow {
+  font: 500 10.5px/1 var(--f-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+h1 {
+  margin: 0;
+  font: 800 30px/0.95 var(--f-display);
+  font-stretch: 118%;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+h1 span { color: var(--gold); }
+.lede { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn:hover { background: var(--line-soft); border-color: #3a5288; }
+.btn.primary { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); font-weight: 600; }
+.btn.primary:hover { background: #ffc844; }
+.btn[aria-pressed="true"] { background: var(--line-soft); border-color: var(--gold); color: var(--gold); }
+
+/* Layers */
+#layers {
+  position: fixed;
+  left: 16px;
+  top: calc(env(safe-area-inset-top, 0px) + 200px);
+  bottom: 96px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  z-index: 4;
+  overflow: hidden;
+}
+#layers header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.h2 { font: 700 13px/1 var(--f-display); font-stretch: 110%; letter-spacing: 0.04em; text-transform: uppercase; }
+.count { font: 12px/1 var(--f-mono); color: var(--faint); }
+#layerList { overflow-y: auto; padding: 6px 8px 12px; display: grid; gap: 2px; }
+.layer { border-radius: 8px; }
+.layer-head {
+  display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center;
+  padding: 8px 8px; border-radius: 8px;
+}
+.layer-head:hover { background: var(--line-soft); }
+.swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.layer-name { font-weight: 600; font-size: 13px; }
+.toggle {
+  appearance: none; -webkit-appearance: none; width: 30px; height: 17px; border-radius: 999px;
+  background: #24365e; position: relative; cursor: pointer; margin: 0; transition: background .15s;
+}
+.toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+.toggle:checked { background: color-mix(in srgb, var(--c, var(--gold)) 45%, #24365e); }
+.toggle:checked::after { transform: translateX(13px); background: var(--fg); }
+.feat-list { display: grid; padding: 0 0 6px 32px; }
+.feat {
+  text-align: left; border: 0; background: transparent; padding: 5px 8px; border-radius: 6px;
+  display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12.5px;
+}
+.feat:hover { background: var(--line-soft); color: var(--fg); }
+.feat[aria-current="true"] { color: var(--fg); background: var(--line-soft); box-shadow: inset 2px 0 0 var(--gold); }
+.feat .d { font: 11px/1.6 var(--f-mono); color: var(--faint); white-space: nowrap; }
+
+/* Record card */
+#info {
+  position: fixed;
+  right: 16px;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  width: 360px;
+  max-height: calc(100% - 128px);
+  overflow-y: auto;
+  z-index: 5;
+  padding: 16px 18px 18px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+#info h2 { margin: 0; font: 750 22px/1.05 var(--f-display); font-stretch: 112%; text-wrap: balance; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px 7px; border-radius: 5px; border: 1px solid var(--line); color: var(--muted);
+}
+.chip.layer-chip { color: var(--c); border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+.chip.s-documented { color: #8fe0a8; border-color: rgba(143, 224, 168, 0.4); }
+.chip.s-approx { color: #ffd36b; border-color: rgba(255, 211, 107, 0.4); }
+.chip.s-schematic { color: #ffab7a; border-color: rgba(255, 171, 122, 0.45); }
+.chip.s-planned { color: var(--cec); border-color: rgba(111, 227, 193, 0.4); }
+.chip.s-historic { color: var(--seis); border-color: rgba(185, 160, 255, 0.4); }
+.spec {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0;
+  font-size: 12.5px; padding: 10px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.22);
+}
+.spec dt { font: 500 10.5px/1.9 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.spec dd { margin: 0; font-variant-numeric: tabular-nums; }
+.summary { margin: 0; color: var(--fg); line-height: 1.55; }
+.facts { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.facts li { padding-left: 14px; position: relative; color: #d3daea; font-size: 13px; line-height: 1.5; }
+.facts li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 6px; height: 1px; background: var(--gold); }
+sup a { font: 500 10px/1 var(--f-mono); color: var(--gold); text-decoration: none; margin-left: 2px; }
+sup a:hover { text-decoration: underline; }
+.note { font-size: 12px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 10px; margin: 0; }
+.sources { display: grid; gap: 4px; font-size: 12px; margin: 0; padding: 0; list-style: none; }
+.sources a { color: var(--muted); text-decoration: none; }
+.sources a:hover { color: var(--gold); text-decoration: underline; }
+.sources b { font: 500 10.5px/1 var(--f-mono); color: var(--gold); margin-right: 6px; }
+.close-x {
+  position: absolute; right: 10px; top: 10px; width: 28px; height: 28px; border-radius: 6px;
+  border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 18px; line-height: 1;
+}
+.close-x:hover { border-color: var(--line); color: var(--fg); }
+#info { position: fixed; }
+
+/* Controls dock */
+#dock {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  z-index: 6;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100% - 32px);
+}
+.ctl { display: grid; gap: 4px; min-width: 0; }
+.ctl label { font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); display: flex; justify-content: space-between; gap: 8px; }
+.ctl output { color: var(--gold); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 130px; accent-color: var(--gold); margin: 0; }
+.dock-sep { width: 1px; align-self: stretch; background: var(--line); }
+
+/* HUD */
+#hud {
+  position: fixed; z-index: 3;
+  right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  display: flex; gap: 12px; align-items: end; pointer-events: none;
+  font: 11px/1 var(--f-mono); color: var(--muted);
+}
+#compass { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; }
+#compass svg { transition: transform 0.05s linear; }
+#scale { display: grid; gap: 5px; justify-items: start; padding: 8px 10px; }
+#scaleBar { height: 6px; border: 1px solid var(--fg); border-top: 0; }
+
+/* Labels */
+.lbl {
+  pointer-events: auto;
+  font: 600 11.5px/1.15 var(--f-body);
+  color: var(--fg);
+  background: rgba(5, 13, 32, 0.78);
+  border: 1px solid color-mix(in srgb, var(--c, var(--line)) 60%, transparent);
+  border-radius: 5px;
+  padding: 3px 7px 3px 6px;
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer;
+}
+.lbl::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--c, var(--fg)); }
+.lbl:hover, .lbl.on { background: var(--panel-solid); border-color: var(--gold); }
+.lbl.ctx {
+  pointer-events: none; cursor: default; background: transparent; border: 0; padding: 0;
+  font: 500 10.5px/1 var(--f-mono); color: var(--ctx); opacity: 0.8; text-shadow: 0 1px 3px #000;
+}
+.lbl.ctx::before { display: none; }
+.hide-labels .lbl { display: none; }
+body.riding #masthead, body.riding #layers, body.riding #info, body.riding #dock { display: none; }
+.hide-ctx .lbl.ctx { display: none; }
+
+#tip {
+  position: fixed; z-index: 7; pointer-events: none; padding: 6px 9px; border-radius: 6px;
+  background: var(--panel-solid); border: 1px solid var(--line); font-size: 12px; max-width: 260px;
+}
+#tip .d { font: 11px/1.4 var(--f-mono); color: var(--muted); }
+
+/* Tour + ride overlays */
+#tourCard, #rideCard {
+  position: fixed; z-index: 8; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
+  width: min(560px, calc(100% - 32px));
+  padding: 14px 18px; display: grid; gap: 8px;
+}
+#tourCard h3, #rideCard h3 { margin: 0; font: 750 18px/1.1 var(--f-display); font-stretch: 112%; }
+#tourCard p, #rideCard p { margin: 0; color: #d3daea; font-size: 13.5px; }
+.step { font: 500 10.5px/1 var(--f-mono); letter-spacing: 0.1em; color: var(--gold); text-transform: uppercase; }
+.progress { height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--gold); }
+
+#about {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
+  background: rgba(2, 7, 20, 0.66); padding: 16px;
+}
+#about .panel { width: min(720px, 100%); max-height: calc(100% - 32px); overflow-y: auto; padding: 22px 24px; position: relative; display: grid; gap: 12px; }
+#about h2 { margin: 0; font: 800 26px/1 var(--f-display); font-stretch: 115%; }
+#about p { margin: 0; color: #d3daea; max-width: 65ch; }
+#about h3 { margin: 6px 0 0; font: 700 13px/1 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+.legend-status { display: grid; gap: 6px; font-size: 13px; }
+.legend-status div { display: flex; gap: 10px; align-items: baseline; }
+
+#loading {
+  position: fixed; inset: 0; display: grid; place-items: center; z-index: 30; background: var(--bg);
+  font: 500 12px/1 var(--f-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+#err { position: fixed; inset: 0; display: grid; place-items: center; z-index: 31; background: var(--bg); padding: 16px; text-align: center; }
+
+#mobileBar { display: none; }
+
+@media (max-width: 860px) {
+  #masthead { width: auto; right: 16px; padding: 10px 12px; gap: 6px; }
+  h1 { font-size: 22px; }
+  .lede { display: none; }
+  #layers { top: auto; bottom: 150px; left: 16px; right: 16px; width: auto; max-height: 46%; }
+  #layers.collapsed { display: none; }
+  #info { left: 16px; right: 16px; width: auto; top: auto; bottom: 150px; max-height: 38%; padding: 14px; }
+  #info h2 { font-size: 19px; }
+  #dock { left: 16px; right: 16px; transform: none; max-width: none; gap: 10px 14px; padding: 8px 12px; }
+  input[type="range"] { width: 100%; }
+  .ctl { flex: 1 1 120px; }
+  .dock-sep { display: none; }
+  #hud { display: none; }
+  #mobileBar { display: flex; }
+  #tourCard, #rideCard { bottom: 150px; }
+}
+@media (min-width: 861px) {
+  #layers.collapsed { display: flex; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="loading">Surveying the subsurface…</div>
+<script>setTimeout(function(){var l=document.getElementById("loading");if(l&&!l.hidden){l.hidden=true;var e=document.getElementById("err");e.hidden=false;document.getElementById("errMsg").textContent="The 3D engine (three.js from cdn.jsdelivr.net) did not load. Check your connection or content blocker, then reload.";}},15000);</script>
+<div id="stage"></div>
+<div id="labels"></div>
+
+<section id="masthead" class="panel" aria-label="About this model">
+  <div class="eyebrow">UC Berkeley · subsurface atlas</div>
+  <h1>Under <span>Cal</span></h1>
+  <p class="lede">Steam tunnels, buried library floors, culverted creeks, a creeping fault and the old research tunnels under UC Berkeley, rebuilt in 3D from published sources.</p>
+  <div class="row">
+    <button class="btn primary" id="tourBtn" type="button">Take the tour</button>
+    <button class="btn" id="aboutBtn" type="button">Sources &amp; accuracy</button>
+    <button class="btn" id="layersBtn" type="button" aria-expanded="false" hidden>Layers</button>
+  </div>
+</section>
+
+<aside id="layers" class="panel" aria-label="Layers">
+  <header><span class="h2">Layers</span><span class="count" id="featCount"></span></header>
+  <div id="layerList"></div>
+</aside>
+
+<aside id="info" class="panel" aria-live="polite"></aside>
+
+<div id="dock" class="panel" role="group" aria-label="View controls">
+  <div class="ctl">
+    <label for="xray">X-ray ground <output id="xrayOut">65%</output></label>
+    <input type="range" id="xray" min="0" max="100" value="65">
+  </div>
+  <div class="ctl">
+    <label for="exag">Depth stretch <output id="exagOut">×3</output></label>
+    <input type="range" id="exag" min="1" max="10" step="0.5" value="3">
+  </div>
+  <div class="ctl">
+    <label for="cut">Cross-section <output id="cutOut">off</output></label>
+    <input type="range" id="cut" min="0" max="100" value="0">
+  </div>
+  <div class="ctl">
+    <label for="offset">Fault slip <output id="offsetOut">0 ft</output></label>
+    <input type="range" id="offset" min="0" max="6" step="0.25" value="0">
+  </div>
+  <div class="dock-sep"></div>
+  <div class="row">
+    <button class="btn" id="labelsBtn" type="button" aria-pressed="true">Labels</button>
+    <button class="btn" id="resetBtn" type="button">Reset view</button>
+  </div>
+</div>
+
+<div id="hud">
+  <div id="scale" class="panel"><span id="scaleTxt">100 m</span><div id="scaleBar" style="width:80px"></div></div>
+  <div id="compass" title="North">
+    <svg id="compassNeedle" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+      <path d="M15 3 L20 16 L15 13 L10 16 Z" fill="#fdb515"/>
+      <path d="M15 27 L10 14 L15 17 L20 14 Z" fill="#4a5f8f"/>
+      <text x="15" y="3" font-size="0" fill="#fff">N</text>
+    </svg>
+  </div>
+</div>
+
+<div id="tip" hidden></div>
+
+<div id="tourCard" class="panel" hidden>
+  <div class="row" style="justify-content:space-between"><span class="step" id="tourStep">Stop 1 of 8</span><button class="btn" id="tourExit" type="button">End tour</button></div>
+  <h3 id="tourTitle"></h3>
+  <p id="tourText"></p>
+  <div class="row"><button class="btn" id="tourPrev" type="button">Back</button><button class="btn primary" id="tourNext" type="button">Next stop</button></div>
+</div>
+
+<div id="rideCard" class="panel" hidden>
+  <div class="row" style="justify-content:space-between"><span class="step" id="rideStep">Walking the tunnel</span><button class="btn" id="rideExit" type="button">Leave tunnel</button></div>
+  <h3 id="rideTitle"></h3>
+  <p id="rideText">Drag to look around. Use the buttons to change pace.</p>
+  <div class="progress"><i id="rideBar"></i></div>
+  <div class="row">
+    <button class="btn" id="rideBack" type="button">Reverse</button>
+    <button class="btn" id="ridePause" type="button" aria-pressed="false">Pause</button>
+    <button class="btn" id="rideSlow" type="button">Slower</button>
+    <button class="btn" id="rideFast" type="button">Faster</button>
+    <span class="count" id="rideSpeed"></span>
+  </div>
+</div>
+
+<div id="about" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <button class="close-x" id="aboutClose" type="button" aria-label="Close">×</button>
+    <div class="eyebrow">How this model was built</div>
+    <h2 id="aboutTitle">Sources &amp; accuracy</h2>
+    <p>Every feature is placed from published descriptions: campus news archives, the Strawberry Creek management plan, the Berkeley Seismological Laboratory station book, UC Libraries, the Clean Energy Campus project and engineering press on the stadium retrofit. UC Berkeley does not publish as-built maps of its steam tunnels, so those corridors connect the documented points along plausible routes. Do not use this model for navigation, excavation or entry. The tunnels are off-limits and dangerous.</p>
+    <h3>Confidence tags</h3>
+    <div class="legend-status">
+      <div><span class="chip s-documented">Documented</span><span>Location and dimensions come straight from a source.</span></div>
+      <div><span class="chip s-approx">Approximate</span><span>The feature is real and documented; its exact alignment or depth is estimated.</span></div>
+      <div><span class="chip s-schematic">Schematic</span><span>The feature exists, but its routing here is illustrative.</span></div>
+      <div><span class="chip s-planned">Planned</span><span>Under construction or proposed (Clean Energy Campus).</span></div>
+      <div><span class="chip s-historic">Historic</span><span>No longer in its original use.</span></div>
+    </div>
+    <h3>Model conventions</h3>
+    <p>Horizontal positions are in metres from the base of Sather Tower (37.8721° N, 122.2578° W). Ground relief is a simplified model fitted to a few known elevations, such as the stadium field at about 410 ft. Depths below ground can be stretched with the Depth stretch slider so shallow tunnels are readable; the record card always shows real figures. Fault slip is drawn ten times larger than the slider value.</p>
+    <h3>Sources</h3>
+    <ol class="sources" id="sourceList"></ol>
+  </div>
+</div>
+
+<div id="err" hidden><div><div class="eyebrow">The 3D view could not start</div><p id="errMsg" style="max-width:48ch;color:var(--muted)"></p></div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* ---------------------------------------------------------------
+   Sources
+---------------------------------------------------------------- */
+const SRC = {
+  fricke:  ['Tobin Fricke, “Under Cal” (1999), Open Computing Facility', 'https://www.ocf.berkeley.edu/~fricke/undercal/'],
+  dailycal:['Daily Californian, “Campus steam tunnels: history, theories and function”', 'https://www.dailycal.org/news/campus/campus-steam-tunnels-history-theories-and-function/article_6cbc1a7e-980a-11ef-a34e-a39f7e2e6c31.html'],
+  cec:     ['UC Berkeley Clean Energy Campus project', 'https://cleanenergycampus.berkeley.edu/'],
+  cogen:   ['UC Berkeley Facilities, Cogeneration Plant', 'https://facilities.berkeley.edu/node/189'],
+  calmag:  ['California Magazine, “Berkeley goes all-electric” (2023)', 'https://alumni.berkeley.edu/california-magazine/2023-spring-summer/berkeley-goes-all-electric-as-part-of-ambitious-clean-energy-campus-plan/'],
+  stacks:  ['UC Berkeley Library, Main (Gardner) Stacks', 'https://www.lib.berkeley.edu/visit/main-stacks'],
+  doe:     ['Doe Memorial Library, Berkeley Disability Access & Compliance', 'https://dac.berkeley.edu/doe-memorial-library'],
+  gardner: ['UC Berkeley press release on the Gardner Stacks', 'https://newsarchive.berkeley.edu/news/media/releases/97legacy/gard.html'],
+  glade:   ['UC Berkeley campus map, Memorial Glade', 'https://www.berkeley.edu/map/memorial-glade'],
+  creek1:  ['Strawberry Creek Management Plan (1987), 3.1 General Description', 'https://creeks.berkeley.edu/node/387'],
+  creek2:  ['Strawberry Creek Management Plan (1987), 3.2 Historical Perspective', 'https://creeks.berkeley.edu/strawberry-creek-management-plan-1987/32-historical-perspective'],
+  culvert: ['City of Berkeley, Strawberry Creek Culvert Maintenance Project', 'https://berkeleyca.gov/your-government/our-work/capital-projects/strawberry-creek-culvert-maintenance-project'],
+  hfbook:  ['“The Hayward Fault at UC Berkeley” field guide: California Memorial Stadium', 'https://pressbooks.pub/haywardfaultucberkeley/chapter/the-california-memorial-stadium/'],
+  ncgs:    ['Northern California Geological Society, Hayward Fault at UC Berkeley field trip', 'https://ncgeolsoc.org/field-trip-report-hayward-fault-at-uc-berkeley/'],
+  enr:     ['ENR, “Three Buildings, Three Different Approaches”', 'https://www.enr.com/articles/21-three-buildings-three-different-approaches?page=2'],
+  calbears:['Cal Athletics, “Renovation of Memorial Stadium relies on seismic expertise” (2011)', 'https://calbears.com/sports/2011/5/24/207758368'],
+  bereng:  ['Berkeley Engineering timeline, California Memorial Stadium retrofit', 'https://engineering.berkeley.edu/timeline/california-memorial-stadium-retrofit'],
+  creep:   ['Bilham et al., a decade of Hayward fault creep data', 'https://cires1.colorado.edu/~bilham/HaywardDecadeCreep.html'],
+  usgs97:  ['USGS OFR 97-690, revised long-term creep rates on the Hayward Fault', 'https://pubs.usgs.gov/publication/ofr97690'],
+  eq1868:  ['Berkeley Seismological Lab, the 1868 Hayward earthquake', 'https://seismo.berkeley.edu/eqInfo/1868_quake.html'],
+  adit:    ['“The Hayward Fault at UC Berkeley” field guide: Lawson Adit', 'https://pressbooks.pub/haywardfaultucberkeley/chapter/lawson-adit'],
+  adit2:   ['Berkeleyan (2002), on the Lawson Adit', 'https://newsarchive.berkeley.edu/news/berkeleyan/2002/09/19_lawsna.html'],
+  haviland:['Berkeley Social Welfare, Haviland Hall history: “Temblors & Tunnels”', 'https://socialwelfare.berkeley.edu/about/haviland-hall/haviland-hall-history/temblors-tunnels'],
+  brk:     ['Berkeley Seismological Lab station book, BRK (Haviland Hall)', 'https://seismo.berkeley.edu/station_book/brk.html'],
+  bks:     ['Berkeley Seismological Lab station book, BKS (Byerly Vault)', 'https://seismo.berkeley.edu/station_book/bks.html'],
+  bartdb:  ['Downtown Berkeley station (BART)', 'https://en.wikipedia.org/wiki/Downtown_Berkeley_station'],
+  bartch:  ['BART chronology 1947–1991', 'https://www.bart.gov/sites/default/files/docs/50-years/1947-1991%20BART%20Chronology.pdf'],
+  map1949: ['“Underground Campus”, California Engineer Mad Issue (Jan 1949)', 'https://www.raremaps.com/gallery/detail/78847'],
+  stadium: ['California Memorial Stadium (field elevation and orientation)', 'https://www.liquisearch.com/california_memorial_stadium'],
+  sather:  ['Sather Tower (307 ft)', 'https://en.wikipedia.org/wiki/Sather_Tower'],
+};
+const SRC_KEYS = Object.keys(SRC);
+const srcNum = k => SRC_KEYS.indexOf(k) + 1;
+
+/* ---------------------------------------------------------------
+   Geography: local metres from the base of Sather Tower
+---------------------------------------------------------------- */
+const LAT0 = 37.87207, LON0 = -122.25779;
+const ll = (lat, lon) => [(lon - LON0) * 87960, -(lat - LAT0) * 110950]; // [x east, z south]
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+const PROFILE = [[-2500,18],[-2070,30],[-900,55],[-766,62],[-300,82],[0,95],[300,107],[520,117],[700,134],[1000,160],[1400,190],[1900,215],[2700,262]];
+function profile(x) {
+  if (x <= PROFILE[0][0]) return PROFILE[0][1];
+  for (let i = 1; i < PROFILE.length; i++) {
+    const [x1, y1] = PROFILE[i];
+    if (x <= x1) { const [x0, y0] = PROFILE[i - 1]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  }
+  return PROFILE[PROFILE.length - 1][1];
+}
+
+// Hayward Fault trace: through the stadium field and past the SE corner of Bowles Hall
+const FA = new THREE.Vector2(610, 111), FB = new THREE.Vector2(481, -124);
+const FDIR = FB.clone().sub(FA).normalize(); // points NW (x,z)
+const faultSide = (x, z) => FDIR.x * (z - FA.y) - FDIR.y * (x - FA.x); // >0 = east side
+
+// Stadium bowl, long axis roughly NW–SE
+const ST = { c: new THREE.Vector2(610, 111), a: Math.atan2(FDIR.y, FDIR.x) + 0.17 };
+function stadiumLocal(x, z) {
+  const dx = x - ST.c.x, dz = z - ST.c.y, ca = Math.cos(ST.a), sa = Math.sin(ST.a);
+  return [dx * ca + dz * sa, -dx * sa + dz * ca];
+}
+
+function ground(x, z) {
+  let h = profile(x) - z * 0.012;
+  const east = sstep(450, 950, x);
+  const zc = 111 - (x - 610) * 0.23; // Strawberry Canyon axis, heading ENE
+  const d = Math.abs(z - zc);
+  h += east * (Math.min(d, 700) * 0.06 - 10 * Math.exp(-(d * d) / 3600));
+  h += sstep(-200, -800, z) * sstep(0, 700, x) * 34; // hills north of the canyon
+  h += 1.1 * Math.sin(x * 0.013 + z * 0.007) * Math.cos(z * 0.011 - x * 0.004);
+  const [u, v] = stadiumLocal(x, z);
+  const e = Math.sqrt((u / 150) ** 2 + (v / 105) ** 2);
+  const w = 1 - sstep(0.85, 1.35, e);
+  h = h * (1 - w) + 125 * w; // stadium field at ~410 ft
+  return h;
+}
+
+/* ---------------------------------------------------------------
+   Renderer, scene, camera
+---------------------------------------------------------------- */
+const stage = document.getElementById('stage');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+} catch (e) {
+  document.getElementById('loading').hidden = true;
+  document.getElementById('err').hidden = false;
+  document.getElementById('errMsg').textContent = 'This browser could not create a WebGL context. Try a recent Chrome, Edge, Firefox or Safari with hardware acceleration on.';
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.localClippingEnabled = true;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x06112a);
+scene.fog = new THREE.Fog(0x06112a, 2600, 7200);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.3, 20000);
+const HOME = { pos: new THREE.Vector3(-760, 640, 1050), target: new THREE.Vector3(60, 40, 20) };
+camera.position.copy(HOME.pos);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(HOME.target);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.94;
+controls.minDistance = 4;
+controls.maxDistance = 6000;
+controls.screenSpacePanning = true;
+controls.update();
+
+scene.add(new THREE.HemisphereLight(0xbfd2ff, 0x2a1d10, 1.15));
+const sun = new THREE.DirectionalLight(0xfff1d6, 1.4);
+sun.position.set(-800, 1400, 600);
+scene.add(sun);
+const headlamp = new THREE.PointLight(0xffe2b0, 0, 60, 1.6);
+scene.add(headlamp);
+
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------------------------------------------------------------
+   Terrain: painted relief map with contours and street grid
+---------------------------------------------------------------- */
+const T = { x0: -2500, x1: 2700, z0: -1150, z1: 1150 };
+T.w = T.x1 - T.x0; T.d = T.z1 - T.z0;
+
+const STREETS = [
+  ['Oxford St',    [[37.8660,-122.2665],[37.8762,-122.2663]]],
+  ['Shattuck Ave', [[37.8600,-122.2681],[37.8800,-122.2687]]],
+  ['Sacramento St',[[37.8600,-122.2813],[37.8800,-122.2816]]],
+  ['Bancroft Way', [[37.8689,-122.2700],[37.8689,-122.2533]]],
+  ['Durant Ave',   [[37.8679,-122.2700],[37.8679,-122.2530]]],
+  ['Hearst Ave',   [[37.8754,-122.2700],[37.8752,-122.2600],[37.8746,-122.2560]]],
+  ['Gayley Rd',    [[37.8752,-122.2555],[37.8730,-122.2543],[37.8705,-122.2536],[37.8690,-122.2527]]],
+  ['Piedmont Ave', [[37.8690,-122.2527],[37.8640,-122.2525]]],
+  ['Telegraph Ave',[[37.8689,-122.2591],[37.8600,-122.2590]]],
+  ['College Ave',  [[37.8689,-122.2546],[37.8600,-122.2535]]],
+  ['Center St',    [[37.8703,-122.2681],[37.8703,-122.2665]]],
+  ['Allston Way',  [[37.8695,-122.2830],[37.8695,-122.2665]]],
+  ['University Ave',[[37.8718,-122.2900],[37.8718,-122.2665]]],
+  ['Euclid Ave',   [[37.8754,-122.2604],[37.8820,-122.2610]]],
+  ['Centennial Dr',[[37.8705,-122.2500],[37.8735,-122.2440],[37.8752,-122.2390],[37.8770,-122.2340]]],
+];
+const CAMPUS = [[37.8754,-122.2665],[37.8754,-122.2600],[37.8747,-122.2557],[37.8735,-122.2545],[37.8705,-122.2536],[37.8689,-122.2540],[37.8689,-122.2665]];
+
+function paintTerrain() {
+  const W = 2080, H = Math.round(W * T.d / T.w);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  const hs = new Float32Array(W * H);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    hs[j * W + i] = ground(T.x0 + (i / (W - 1)) * T.w, T.z0 + (j / (H - 1)) * T.d);
+  }
+  const px = T.w / W;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const k = j * W + i, h = hs[k];
+    const hx = hs[j * W + Math.min(W - 1, i + 1)] - hs[j * W + Math.max(0, i - 1)];
+    const hz = hs[Math.min(H - 1, j + 1) * W + i] - hs[Math.max(0, j - 1) * W + i];
+    const shade = clamp(0.72 + (-hx * 0.7 - hz * 0.5) / (2 * px) * 1.6, 0.35, 1.25);
+    const t = clamp((h - 15) / 260, 0, 1);
+    let r = 30 + 38 * t, g = 46 + 30 * t, b = 52 + 6 * t;
+    const c10 = Math.abs(((h / 10) % 1 + 1) % 1 - 0.5);
+    const c50 = Math.abs(((h / 50) % 1 + 1) % 1 - 0.5);
+    const slope = Math.hypot(hx, hz) / (2 * px) + 0.02;
+    const line10 = c10 > 0.5 - 0.05 * slope * 6 ? 1 : 0;
+    const line50 = c50 > 0.5 - 0.012 * slope * 6 ? 1 : 0;
+    r *= shade; g *= shade; b *= shade;
+    if (line10) { r += 14; g += 16; b += 18; }
+    if (line50) { r += 40; g += 34; b += 18; }
+    img.data[k * 4] = clamp(r, 0, 255); img.data[k * 4 + 1] = clamp(g, 0, 255); img.data[k * 4 + 2] = clamp(b, 0, 255); img.data[k * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const toPx = (lat, lon) => { const [x, z] = ll(lat, lon); return [(x - T.x0) / T.w * W, (z - T.z0) / T.d * H]; };
+  // campus tint
+  ctx.beginPath();
+  CAMPUS.forEach(([a, b], i) => { const [x, y] = toPx(a, b); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(70, 120, 90, 0.20)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(253, 181, 21, 0.55)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.4; ctx.stroke(); ctx.setLineDash([]);
+  // streets
+  ctx.lineCap = 'round';
+  for (const [name, pts] of STREETS) {
+    ctx.beginPath();
+    pts.forEach(([a, b], i) => { const [x, y] = toPx(a, b); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.strokeStyle = 'rgba(210, 222, 245, 0.42)'; ctx.lineWidth = 2.2; ctx.stroke();
+    const [p0, p1] = [toPx(...pts[0]), toPx(...pts[pts.length - 1])];
+    const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+    let ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+    if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
+    ctx.save(); ctx.translate(mx, my); ctx.rotate(ang);
+    ctx.font = '500 9px "IBM Plex Mono", monospace'; ctx.fillStyle = 'rgba(220, 230, 250, 0.7)'; ctx.textAlign = 'center';
+    ctx.fillText(name.toUpperCase(), 0, -4); ctx.restore();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return tex;
+}
+
+function strataTexture() {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256;
+  const c = cv.getContext('2d');
+  const bands = ['#3b2c22', '#47362a', '#3a3026', '#52402f', '#3f3329', '#4a3a2b', '#34291f', '#463628'];
+  let y = 0, i = 0;
+  while (y < 256) { const hgt = 14 + ((i * 37) % 23); c.fillStyle = bands[i % bands.length]; c.fillRect(0, y, 256, hgt); y += hgt; i++; }
+  for (let n = 0; n < 900; n++) { c.fillStyle = `rgba(255,235,200,${0.03 + (n % 7) * 0.01})`; c.fillRect((n * 97) % 256, (n * 53) % 256, 2, 1); }
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 99999);
+const terrainMat = new THREE.MeshStandardMaterial({ map: paintTerrain(), roughness: 0.95, metalness: 0, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+const terrainGeo = new THREE.PlaneGeometry(T.w, T.d, 260, 115);
+terrainGeo.rotateX(-Math.PI / 2);
+{
+  const p = terrainGeo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i) + (T.x0 + T.x1) / 2, z = p.getZ(i) + (T.z0 + T.z1) / 2;
+    p.setXYZ(i, x, ground(x, z), z);
+  }
+  terrainGeo.computeVertexNormals();
+}
+const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+terrain.renderOrder = 10;
+scene.add(terrain);
+
+const strata = strataTexture();
+const strataMat = new THREE.MeshStandardMaterial({ map: strata, roughness: 1, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+const BASE_Y = -120;
+function wallGeometry(pts) { // pts: [[x,z]...] along a line; wall from ground down to BASE_Y
+  const pos = [], uv = [], idx = [];
+  let s = 0;
+  pts.forEach(([x, z], i) => {
+    if (i) s += Math.hypot(x - pts[i - 1][0], z - pts[i - 1][1]);
+    const g = ground(x, z);
+    pos.push(x, g, z, x, BASE_Y, z);
+    uv.push(s / 160, g / 160, s / 160, BASE_Y / 160);
+    if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+const line = (a, b, n, f) => Array.from({ length: n + 1 }, (_, i) => f(a + (b - a) * i / n));
+const skirt = new THREE.Group();
+[
+  line(T.x0, T.x1, 200, x => [x, T.z1]),
+  line(T.x0, T.x1, 200, x => [x, T.z0]),
+  line(T.z0, T.z1, 90, z => [T.x0, z]),
+  line(T.z0, T.z1, 90, z => [T.x1, z]),
+].forEach(p => skirt.add(new THREE.Mesh(wallGeometry(p), strataMat)));
+const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(T.w, T.d).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1b1712, roughness: 1, transparent: true, opacity: 0.9 }));
+floorMesh.position.set((T.x0 + T.x1) / 2, BASE_Y, 0);
+skirt.add(floorMesh);
+scene.add(skirt);
+
+const sectionMat = new THREE.MeshStandardMaterial({ map: strata, roughness: 1, side: THREE.DoubleSide, emissive: 0x2a1c10, emissiveIntensity: 0.6 });
+let sectionMesh = null;
+function updateSection(z) {
+  if (sectionMesh) { scene.remove(sectionMesh); sectionMesh.geometry.dispose(); sectionMesh = null; }
+  if (z == null) return;
+  sectionMesh = new THREE.Mesh(wallGeometry(line(T.x0, T.x1, 400, x => [x, z])), sectionMat);
+  scene.add(sectionMesh);
+}
+
+/* ---------------------------------------------------------------
+   Shared geometry helpers
+---------------------------------------------------------------- */
+const S = { exag: 3 };
+let selected = null;
+const P = (x, z, depth = 0) => new THREE.Vector3(x, ground(x, z) - depth * S.exag, z);
+const Pg = (x, z, h = 0) => new THREE.Vector3(x, ground(x, z) + h, z);
+const E = (x, z, elev) => { const g = ground(x, z); return new THREE.Vector3(x, g - (g - elev) * S.exag, z); };
+
+const flowTextures = [];
+function flowTexture(color, period = 14) {
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 8;
+  const c = cv.getContext('2d');
+  const grd = c.createLinearGradient(0, 0, 64, 0);
+  grd.addColorStop(0, '#b8b8b8'); grd.addColorStop(0.55, '#b8b8b8'); grd.addColorStop(0.72, '#ffffff'); grd.addColorStop(1, '#b8b8b8');
+  c.fillStyle = grd; c.fillRect(0, 0, 64, 8);
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  t.userData.period = period;
+  return t;
+}
+const css = getComputedStyle(document.documentElement);
+const COL = {};
+['steam','cec','lib','water','fault','seis','mine','bart','ctx','gold'].forEach(k => COL[k] = css.getPropertyValue('--' + k).trim());
+
+function tube(points, radius, color, { flow = false, opacity = 1, speed = 1, curveType = 'centripetal', tension = 0.5, emissive = 0.4 } = {}) {
+  const curve = new THREE.CatmullRomCurve3(points, false, curveType, tension);
+  const len = curve.getLength();
+  const geo = new THREE.TubeGeometry(curve, Math.max(16, Math.round(len / 2.5)), radius, 10, false);
+  const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: emissive, roughness: 0.55, metalness: 0.1, side: THREE.DoubleSide, transparent: opacity < 1, opacity });
+  if (flow) {
+    const t = flowTexture(color);
+    t.repeat.set(len / t.userData.period, 1);
+    t.userData.speed = speed;
+    mat.map = t; mat.emissiveMap = t;
+    flowTextures.push(t);
+  }
+  const m = new THREE.Mesh(geo, mat);
+  m.userData.curve = curve;
+  return m;
+}
+function box(w, h, d, color, { opacity = 1, emissive = 0.25, edges = false } = {}) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: emissive, roughness: 0.7, transparent: opacity < 1, opacity, depthWrite: opacity > 0.6 }));
+  if (edges) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 })));
+  return m;
+}
+const lerp2 = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => [a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]);
+function densify(pts2, step = 25) { // smooth a polyline of [x,z] for ground-following
+  const out = [];
+  for (let i = 1; i < pts2.length; i++) {
+    const a = pts2[i - 1], b = pts2[i];
+    const n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+    lerp2(a, b, n).forEach((p, k) => { if (i === 1 || k > 0) out.push(p); });
+  }
+  return out;
+}
+
+/* ---------------------------------------------------------------
+   Sites (in local metres)
+---------------------------------------------------------------- */
+const SITE = {
+  sather: [0, 0], doe: [-150, -14], moffitt: [-264, -58], glade: [-160, -100], calhall: [-211, 19], vlsb: [-396, 74],
+  dwinelle: [-238, 163], wheeler: [-115, 84], leconte: [69, -81], gilman: [183, -70], hearstMining: [33, -226],
+  haviland: [-300, -180], observatory: [-238, -186], haas: [-387, 297], cogen: [-484, 241], hearstGym: [105, 341],
+  northField: [122, 276], facClub: [196, 32], wfc: [245, 10], bowles: [456, -114], greek: [289, -180], satherGate: [-150, 191],
+  grove: [-634, 107], inlet: [-766, 196], bartDB: [-906, 196], adit: [131, -270], bks: ll(37.87622, -122.23558), stadium: [610, 111],
+};
+
+/* ---------------------------------------------------------------
+   Layers & features
+---------------------------------------------------------------- */
+const LAYERS = [
+  { id: 'energy',  name: 'Steam & power',      color: COL.steam },
+  { id: 'library', name: 'Buried library',      color: COL.lib },
+  { id: 'water',   name: 'Creeks & culverts',   color: COL.water },
+  { id: 'quake',   name: 'Fault & seismology',  color: COL.fault },
+  { id: 'tunnels', name: 'Research tunnels',    color: COL.mine },
+  { id: 'transit', name: 'BART subway',         color: COL.bart },
+];
+const STEAM_D = 4;
+const STEAM_BRANCHES = [
+  [[-484, 241], [-470, 205], [-420, 178], [-330, 172], [-238, 163], [-160, 128], [-115, 84], [-50, 40], [0, 0], [22, -80], [30, -150], [33, -226]],
+  [[-238, 163], [-226, 92], [-211, 19], [-150, -14]],
+  [[-211, 19], [-300, 42], [-396, 74]],
+  [[-420, 178], [-404, 122], [-396, 74]],
+  [[0, 0], [69, -81], [183, -70]],
+  [[-150, -14], [-200, -40], [-264, -58]],
+];
+const FRICKE_ROUTE = [[0, 0], [-50, 40], [-115, 84], [-160, 128], [-238, 163], [-226, 92], [-211, 19], [-300, 42], [-396, 74]];
+const CEC_ROUTES = [
+  [[122, 276], [60, 200], [10, 120], [0, 20]],
+  [[122, 276], [-40, 230], [-150, 191], [-238, 163]],
+  [[0, 20], [-80, 0], [-150, -14]],
+  [[0, 20], [69, -81]],
+  [[-150, 191], [-300, 240], [-387, 297]],
+];
+
+const FEATURES = [
+  {
+    id: 'steam', layer: 'energy', name: 'Steam tunnels', status: 'schematic',
+    spec: [['Built', 'Early 1900s onward'], ['Carries', 'Steam, condensate, fibre, utilities'], ['Depth', 'Shallow, a few metres (est.)'], ['Source', 'Cogeneration plant, Cross Campus Rd']],
+    summary: 'A network of utility tunnels carries steam pipes from the campus heating plant to buildings across the central campus. It is the classic "steam tunnel" system that students have whispered about for a century.',
+    facts: [
+      ['Steam is made at the heating plant on Cross Campus Road, northwest of Harmon Gym (now Haas Pavilion), and travels through pipes in a network of tunnels under campus.', ['dailycal']],
+      ['In 1999 student Tobin Fricke documented entering through a grate near the Campanile, walking underground past Dwinelle Hall and California Hall, and coming up in the basement of the Valley Life Sciences Building.', ['fricke', 'dailycal']],
+      ['The tunnels are not a place to visit: Fricke lists live steam, probable asbestos, heat exhaustion, radon and caustic chemicals among the hazards, and entry requires a Physical Plant escort.', ['fricke']],
+      ['The aging steam lines need frequent emergency repairs. The Clean Energy Campus project is replacing them with hot- and chilled-water piping.', ['cec']],
+      ['A 1949 California Engineer cartoon map, “Underground Campus”, already showed a cutaway of tunnels below Sather Tower, LeConte, Gilman and Wheeler.', ['map1949']],
+    ],
+    note: 'UC Berkeley does not publish tunnel maps. The corridors drawn here link the documented points (plant, Campanile, Dwinelle, California Hall, VLSB) along plausible routes. They are not an as-built survey.',
+    ride: { route: FRICKE_ROUTE, depth: STEAM_D, title: 'The 1999 route: Campanile to VLSB', radius: 1.3 },
+    anchor: () => P(-115, 84, STEAM_D),
+    build(g) {
+      STEAM_BRANCHES.forEach(br => g.add(tube(br.map(([x, z]) => P(x, z, STEAM_D)), 1.3, COL.steam, { flow: true, speed: 0.9 })));
+      const nodes = new Set(STEAM_BRANCHES.flatMap(b => [b[0], b[b.length - 1]]).map(p => p.join(',')));
+      [...nodes].forEach(k => { const [x, z] = k.split(',').map(Number); const v = box(4.5, 3.5 * Math.min(S.exag, 3), 4.5, COL.steam, { emissive: 0.5 }); v.position.copy(P(x, z, STEAM_D)); g.add(v); });
+      const grate = box(3, 0.4, 3, COL.gold, { emissive: 0.8 }); grate.position.copy(P(-12, 10, 0)).add(new THREE.Vector3(0, 0.3, 0)); g.add(grate);
+    },
+  },
+  {
+    id: 'cogen', layer: 'energy', name: 'Cogeneration plant', status: 'approx',
+    spec: [['Online', 'Boiler plant; cogeneration added 1987'], ['Supplies', '~90% of electricity, 100% of steam'], ['Fuel', 'Natural gas'], ['Future', 'Replaced by an electric plant']],
+    summary: 'The source of the whole steam system. A gas-fired plant that makes both electricity and steam for the main campus.',
+    facts: [
+      ['The facility was the campus boiler plant until 1987, when cogeneration was added.', ['cogen']],
+      ['It provides about 90% of the main campus’s electricity and 100% of its steam.', ['cogen']],
+      ['Under the Clean Energy Campus plan, the gas-fired plant is to be replaced by an electrified heating and cooling plant and a utility-fed electrical system.', ['calmag', 'cec']],
+    ],
+    anchor: () => Pg(-484, 241, 18),
+    build(g) {
+      const b = box(34, 14, 26, COL.steam, { opacity: 0.85, emissive: 0.25, edges: true }); b.position.copy(P(-484, 241, 0)).add(new THREE.Vector3(0, 7, 0)); g.add(b);
+      const stack = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.2, 42, 16), new THREE.MeshStandardMaterial({ color: 0xb9b2a8, roughness: 0.6 }));
+      stack.position.copy(P(-472, 232, 0)).add(new THREE.Vector3(0, 21, 0)); g.add(stack);
+      const header = box(16, 4 * Math.min(S.exag, 3), 10, COL.steam, { emissive: 0.6 }); header.position.copy(P(-484, 241, STEAM_D)); g.add(header);
+    },
+  },
+  {
+    id: 'cec', layer: 'energy', name: 'Clean Energy loop (planned)', status: 'planned',
+    spec: [['Replaces', 'Steam distribution'], ['Serves', '~100 buildings, 12M+ sq ft'], ['New plant', 'North Field + Hearst Gym basement'], ['Phase 1', 'Mid-2026 through 2030']],
+    summary: 'The steam era is ending. New underground hot- and chilled-water loops will feed buildings from an all-electric plant at the south side of campus.',
+    facts: [
+      ['The project installs new underground hot- and chilled-water piping and converts about 100 buildings, more than 12 million square feet, from steam.', ['cec']],
+      ['The preferred site for the new electrified heating and cooling plant is North Field, the playing field just north of Hearst Gym, plus the gym’s basement.', ['calmag']],
+      ['Phase 1 work begins in mid-2026 and continues through 2030.', ['cec']],
+    ],
+    note: 'Pipe routes are illustrative. The final alignment is set by the project’s design documents.',
+    anchor: () => Pg(122, 276, 8),
+    build(g) {
+      CEC_ROUTES.forEach(r => g.add(tube(densify(r, 30).map(([x, z]) => P(x, z, 2.5)), 0.9, COL.cec, { flow: true, speed: -0.7, opacity: 0.75 })));
+      const pad = box(70, 3, 46, COL.cec, { opacity: 0.35, emissive: 0.5, edges: true }); pad.position.copy(P(122, 276, 0)).add(new THREE.Vector3(0, 1.5, 0)); g.add(pad);
+    },
+  },
+  {
+    id: 'stacks', layer: 'library', name: 'Gardner Main Stacks', status: 'approx',
+    spec: [['Opened', '1994'], ['Floors', '4, all below ground'], ['Depth', '60 ft (18 m)'], ['Shelving', '52 miles'], ['Footprint', '~1.5 × 1 football fields']],
+    summary: 'A four-storey library buried under Memorial Glade. You walk across its roof every time you cross the lawn north of Doe.',
+    facts: [
+      ['Built in 1994 with four underground floors, each roughly one and a half football fields long and one football field wide.', ['stacks']],
+      ['A grand circular stairway descends 60 feet underground; the floors hold 52 miles of shelving, home to about 2.3 million of Doe’s 4.5 million research volumes at opening.', ['gardner']],
+      ['Four large skylights bring daylight all the way to the bottom floor.', ['doe']],
+      ['Doe Library is the gateway to the stacks, and a tunnel connects them to Moffitt Library.', ['doe', 'glade']],
+      ['Burying the stacks is what created Memorial Glade, a major green open space at the heart of campus. Named for UC President David P. Gardner.', ['glade', 'doe']],
+    ],
+    note: 'Floor depths and footprint come from the sources. The exact outline under the Glade is approximated.',
+    ride: { route: [[-150, -14], [-155, -50], [-165, -90], [-200, -100], [-225, -78], [-264, -58]], depth: 13, title: 'Through the stacks to Moffitt', radius: 3 },
+    anchor: () => Pg(-160, -100, 2),
+    build(g) {
+      const [cx, cz] = SITE.glade, W = 130, D = 78, top = ground(cx, cz), depth = 18.3 * S.exag;
+      const shell = box(W, depth, D, COL.lib, { opacity: 0.12, emissive: 0.3, edges: true });
+      shell.position.set(cx, top - depth / 2, cz); g.add(shell);
+      const shelfGeo = new THREE.BoxGeometry(W - 14, 1, 0.9);
+      for (let f = 0; f < 4; f++) {
+        const y = top - depth * (f + 1) / 4;
+        const slab = box(W, 0.8, D, COL.lib, { opacity: 0.55, emissive: 0.35 }); slab.position.set(cx, y, cz); g.add(slab);
+        const rows = 26, inst = new THREE.InstancedMesh(shelfGeo, new THREE.MeshStandardMaterial({ color: 0xc89a3c, emissive: 0x7a5a10, emissiveIntensity: 0.5 }), rows);
+        const m = new THREE.Matrix4();
+        const sh = Math.max(1.2, (depth / 4) * 0.55);
+        for (let r = 0; r < rows; r++) { m.compose(new THREE.Vector3(cx, y + 0.4 + sh / 2, cz - D / 2 + 6 + r * ((D - 12) / (rows - 1))), new THREE.Quaternion(), new THREE.Vector3(1, sh, 1)); inst.setMatrixAt(r, m); }
+        g.add(inst);
+      }
+      [[-35, -20], [35, -20], [-35, 20], [35, 20]].forEach(([dx, dz]) => {
+        const well = box(9, depth, 9, 0xfff2c4, { opacity: 0.35, emissive: 0.9 }); well.position.set(cx + dx, top - depth / 2, cz + dz); g.add(well);
+      });
+      const stair = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, depth, 24, 1, true), new THREE.MeshStandardMaterial({ color: COL.lib, emissive: COL.lib, emissiveIntensity: 0.6, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
+      stair.position.set(cx + 10, top - depth / 2, cz + D / 2 - 8); g.add(stair);
+      g.add(tube([P(-150, -14, 4), P(-152, -40, 4), P(cx + 10, cz + D / 2 - 6, 4)], 2.5, COL.lib, { opacity: 0.85 }));
+      g.add(tube([P(cx - W / 2, cz + 20, 6), P(-240, -64, 6), P(-264, -58, 6)], 2.5, COL.lib, { opacity: 0.85 }));
+    },
+  },
+  {
+    id: 'littleinch', layer: 'water', name: '“Little Inch” culvert', status: 'approx',
+    spec: [['Diameter', '4 ft (1.2 m)'], ['Length', '1,450 ft (442 m)'], ['Built', 'With the stadium, 1923'], ['Outlet', 'Near the Women’s Faculty Club']],
+    summary: 'When Memorial Stadium was built over Strawberry Creek’s South Fork, the creek was pushed into a pipe that runs under the field and then downhill to campus.',
+    facts: [
+      ['Strawberry Creek was diverted into a 4-ft-diameter culvert that runs under the stadium, turns west downhill, and daylights near the Women’s Faculty Club after 1,450 ft.', ['hfbook']],
+      ['California Memorial Stadium is built directly over the South Fork of Strawberry Creek; the “Little Inch” bypass carries the creek beneath the stadium and Strawberry Field.', ['creek1', 'hfbook']],
+      ['Its capacity proved insufficient in the Christmas floods of 1964, which led to the larger “Big Inch” bypass.', ['hfbook']],
+    ],
+    ride: { route: [[720, 70], [655, 92], [610, 111], [540, 104], [460, 80], [360, 45], [245, 10]], depth: 9, title: 'Under the 50-yard line', radius: 0.8 },
+    anchor: () => P(470, 82, 9),
+    build(g) {
+      g.add(tube([[720, 70], [655, 92], [610, 111], [540, 104], [460, 80], [360, 45], [245, 10]].map(([x, z], i, a) => P(x, z, i === a.length - 1 ? 0.5 : 9)), 0.9, COL.water, { flow: true, speed: 1.4 }));
+    },
+  },
+  {
+    id: 'biginch', layer: 'water', name: '“Big Inch” bypass', status: 'approx',
+    spec: [['Built', 'After the 1964 floods'], ['Start', 'Retention dam, Strawberry Canyon'], ['Outlet', 'Beside the Faculty Club'], ['Carries', 'All upper-canyon drainage']],
+    summary: 'The flood fix. A larger bypass culvert takes the whole upper canyon’s runoff around the stadium and releases it on the central campus.',
+    facts: [
+      ['The “Big Inch” bypass culvert begins at a retention dam and carries all upper canyon drainage underground to its outlet adjacent to the Faculty Club.', ['creek1']],
+      ['It was built under Stadium Way after the 1964 Christmas floods overwhelmed the Little Inch.', ['hfbook']],
+    ],
+    note: 'The dam location and alignment are estimated from the descriptions.',
+    anchor: () => P(760, -50, 7),
+    build(g) {
+      g.add(tube([[1020, -30], [880, -52], [760, -50], [640, -30], [500, -8], [360, 18], [196, 32]].map(([x, z], i, a) => P(x, z, i === a.length - 1 ? 0.5 : 7)), 1.3, COL.water, { flow: true, speed: 1.6 }));
+      const dam = box(30, 6, 5, 0x9fb7cf, { emissive: 0.2 }); dam.position.copy(P(1020, -30, 0)).add(new THREE.Vector3(0, 3, 0)); dam.rotation.y = 0.4; g.add(dam);
+    },
+  },
+  {
+    id: 'forks', layer: 'water', name: 'Strawberry Creek, open forks', status: 'approx',
+    spec: [['North Fork', 'Open channel, 3rd order'], ['South Fork', 'Open channel, 4th order'], ['Confluence', 'Eucalyptus Grove'], ['Status', 'Mostly daylit on campus']],
+    summary: 'On campus most of the creek still runs in the open, through Faculty Glade and under Sather Gate’s bridge, before both forks meet in the Eucalyptus Grove.',
+    facts: [
+      ['Both the South Fork and most of the North Fork flow in open channels through the main campus.', ['creek1']],
+      ['The forks meet in the Eucalyptus Grove at the western edge of the central campus, about 400 ft east of Oxford Street.', ['creek1']],
+      ['A middle fork was drained in the early 1870s for a cinder running track; the Eucalyptus Grove was planted to shelter the track from westerly winds.', ['creek1']],
+      ['Before the stadium (1923), Strawberry Creek showed the largest intact stream offset on the Hayward Fault: about 1,100 ft of right-lateral displacement.', ['ncgs']],
+    ],
+    anchor: () => Pg(-60, 178, 3),
+    build(g) {
+      const south = densify([[245, 10], [190, 40], [120, 70], [60, 120], [-60, 178], [-150, 191], [-300, 192], [-450, 150], [-634, 107]], 20);
+      const north = densify([[157, -270], [40, -250], [-100, -250], [-300, -205], [-450, -100], [-560, 40], [-634, 107]], 20);
+      [south, north].forEach(p => g.add(tube(p.map(([x, z]) => Pg(x, z, 0.6)), 1.6, COL.water, { flow: true, speed: 1, opacity: 0.85, curveType: 'catmullrom', tension: 0.3 })));
+    },
+  },
+  {
+    id: 'cityculvert', layer: 'water', name: 'City culvert under Allston Way', status: 'approx',
+    spec: [['Inlet', 'Oxford St & Center St'], ['Length', '~1 mile to Sacramento St'], ['First culvert', '1883, near Oxford'], ['Completed', '1930s by the WPA']],
+    summary: 'The creek leaves campus and disappears. From Oxford Street it runs entirely underground through downtown Berkeley toward the Bay.',
+    facts: [
+      ['Below the confluence, the creek enters the city culvert at Oxford Street and flows underground west through Berkeley to San Francisco Bay near University Avenue.', ['creek1']],
+      ['The longest continuous segment starts at the inlet near Oxford and Center and runs about a mile west along Allston Way to Sacramento Street.', ['culvert']],
+      ['The first large culvert went in near Oxford Street in 1883; the WPA finished culverting the last open reaches in the 1930s, putting the creek underground through the whole city.', ['creek2']],
+    ],
+    ride: { route: [[-766, 196], [-800, 283], [-1000, 283], [-1400, 283], [-1800, 283], [-2070, 283]], depth: 4, title: 'Downstream under Allston Way', radius: 1.6 },
+    anchor: () => P(-1200, 283, 4),
+    build(g) {
+      g.add(tube([[-634, 107], [-700, 160], [-766, 196]].map(([x, z]) => Pg(x, z, 0.6)), 1.6, COL.water, { flow: true, opacity: 0.85 }));
+      g.add(tube(densify([[-766, 196], [-800, 283], [-2070, 283]], 40).map(([x, z], i) => P(x, z, i === 0 ? 0.5 : 4)), 1.8, COL.water, { flow: true, speed: 1.2 }));
+      const inlet = box(8, 4, 8, 0x9fb7cf, { emissive: 0.3, edges: true }); inlet.position.copy(P(-766, 196, 0)); g.add(inlet);
+    },
+  },
+  {
+    id: 'fault', layer: 'quake', name: 'Hayward Fault', status: 'approx',
+    spec: [['Type', 'Right-lateral strike-slip'], ['Creep', '~5 mm/yr (3/16 in)'], ['Last big quake', '1868, M6.8'], ['On campus', 'Stadium, Bowles Hall, Strawberry Canyon']],
+    summary: 'The fault runs right through the east side of campus, slowly creeping even without earthquakes. The plane drawn here shows where the two sides of the Bay Area slide past each other.',
+    facts: [
+      ['The Hayward Fault cuts through the eastern part of campus, most prominently through the playing field of Memorial Stadium, and passes the southeast corner of Bowles Hall.', ['ncgs']],
+      ['It creeps steadily, at about 5 mm a year (3.5–6.5 mm/yr), roughly 3/16 inch.', ['creep', 'enr']],
+      ['Creep has bent a brick patio next to Campus Circle from a rectangular design into a curvy one.', ['ncgs']],
+      ['On October 21, 1868, a magnitude 6.8 earthquake ruptured as much as 41 km of the fault’s southern part.', ['eq1868']],
+    ],
+    note: 'The surface trace is placed from published landmarks. The plane is drawn to 200 m below ground; the real fault continues much deeper.',
+    anchor: () => Pg(520, -40, 4),
+    build(g) {
+      const pts = line(-1350, 1350, 120, s => [FA.x + FDIR.x * s, FA.y + FDIR.y * s]).filter(([x, z]) => x > T.x0 && x < T.x1 && z > T.z0 && z < T.z1);
+      const pos = [], idx = [];
+      pts.forEach(([x, z], i) => { const gy = ground(x, z); pos.push(x, gy + 0.5, z, x, gy - 200, z); if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } });
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+      g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: COL.fault, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false })));
+      const lines = [];
+      for (let dd = 50; dd <= 200; dd += 50) pts.forEach(([x, z], i) => { if (i) { const [px, pz] = pts[i - 1]; lines.push(px, ground(px, pz) - dd, pz, x, ground(x, z) - dd, z); } });
+      const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+      g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: COL.fault, transparent: true, opacity: 0.45 })));
+      g.add(tube(pts.map(([x, z]) => Pg(x, z, 0.8)), 2.2, COL.fault, { emissive: 0.9, curveType: 'catmullrom', tension: 0.1 }));
+    },
+  },
+  {
+    id: 'stadium', layer: 'quake', name: 'Memorial Stadium on the fault', status: 'approx',
+    spec: [['Opened', '1923'], ['Field', '~410 ft elevation, runs NW–SE'], ['Retrofit', '2010–2012, $445M+'], ['Design slip', '6 ft horizontal, 2 ft vertical']],
+    summary: 'The stadium was built across an active fault, over a buried creek. Its 2010–2012 rebuild split it into separate structures so the two halves can slide past each other. Try the Fault slip slider.',
+    facts: [
+      ['The stadium sits on a shutter ridge with the active trace of the fault running through it, being slowly pulled apart by creep.', ['ncgs']],
+      ['Creep shows in the old reinforced concrete: under the seating bowl at expansion joints, adjacent columns and beams no longer line up.', ['enr']],
+      ['The renovation divided the stadium into seven separate structures, two of which straddle the fault, designed for 6 ft of horizontal and 2 ft of vertical movement, an event expected about once every 1,200 years.', ['calbears', 'bereng']],
+      ['Sections directly over the fault were cut into free-floating blocks with gaps around them so they can wobble and twist without toppling.', ['enr']],
+      ['The playing field runs NW–SE at an elevation of about 410 ft (125 m).', ['stadium']],
+    ],
+    note: 'Gold segments mark the fault-straddling blocks. Slip is drawn ten times larger than the slider value so it is visible.',
+    anchor: () => Pg(610, 111, 36),
+    build(g) {
+      const west = new THREE.Group(), eastG = new THREE.Group(); g.add(west, eastG); g.userData.east = eastG;
+      const N = 72, tiers = [[0.0, 0.34, 8], [0.34, 0.68, 16], [0.68, 1.0, 24]];
+      const inner = [72, 42], outer = [150, 105];
+      const ca = Math.cos(ST.a), sa = Math.sin(ST.a);
+      const toW = (u, v) => [ST.c.x + u * ca - v * sa, ST.c.y + u * sa + v * ca];
+      for (let i = 0; i < N; i++) {
+        const th = (i + 0.5) / N * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+        tiers.forEach(([f0, f1, h]) => {
+          const fm = (f0 + f1) / 2;
+          const ru = inner[0] + (outer[0] - inner[0]) * fm, rv = inner[1] + (outer[1] - inner[1]) * fm;
+          const [x, z] = toW(ru * c, rv * s);
+          const radial = Math.hypot((outer[0] - inner[0]) * (f1 - f0) * c, (outer[1] - inner[1]) * (f1 - f0) * s) + 1;
+          const tang = Math.hypot(ru * s, rv * c) * (Math.PI * 2 / N) * 0.92;
+          const side = faultSide(x, z);
+          const isBlock = Math.abs(side) < 16;
+          const col = isBlock ? COL.gold : (side > 0 ? 0xa9b4cc : 0xc7cfdf);
+          const m = box(tang, h, radial + 2, col, { emissive: isBlock ? 0.5 : 0.08, opacity: 0.92 });
+          m.position.set(x, 125 + h / 2, z);
+          const tu = -ru * s, tv = rv * c, tx = tu * ca - tv * sa, tz = tu * sa + tv * ca;
+          m.rotation.y = Math.atan2(-tz, tx);
+          (side > 0 ? eastG : west).add(m);
+        });
+      }
+      const field = new THREE.Mesh(new THREE.PlaneGeometry(110, 49).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x2f6b3a, emissive: 0x153a1d, roughness: 0.9 }));
+      field.rotation.y = -ST.a; field.position.set(ST.c.x, 125.3, ST.c.y); west.add(field);
+      eastG.position.set(-FDIR.x * S.offset * 0.3048 * 10, 0, -FDIR.y * S.offset * 0.3048 * 10);
+    },
+  },
+  {
+    id: 'adit', layer: 'tunnels', name: 'Lawson Adit', status: 'approx',
+    spec: [['Started', '1916'], ['Length', '~200 ft, then ~900 ft by 1939'], ['Used', '1919–1930 for mining classes'], ['Status', 'Closed for safety']],
+    summary: 'A real mine tunnel dug by mining students into the hill east of the Hearst Mining Building, eventually driven straight into the Hayward Fault so a seismologist could study it from the inside.',
+    facts: [
+      ['A horizontal mine tunnel near the Hearst Memorial Mining Building, dug directly through the Hayward Fault and named for Andrew Lawson, one-time Dean of the College of Mining.', ['adit']],
+      ['Started in 1916 under Professor Frank H. Probert. A first report spoke of 1,800 ft into the hills; the tunnel actually reached about 200 ft.', ['adit', 'adit2']],
+      ['Around 1939 it was extended to about 900 ft so it intersected the fault, for direct study by seismologist George Louderback.', ['adit']],
+      ['From 1919 to 1930 it gave students “sound, practical training in drilling, drifting, blasting, timbering, and mine surveying.” It was later closed for safety reasons.', ['adit', 'adit2']],
+    ],
+    note: 'Portal position and bearing are estimated; the length is from the sources.',
+    ride: { route: [[131, -270], [200, -268], [280, -266], [345, -266], [405, -265]], elev: true, title: 'Into the Hayward Fault', radius: 1.2 },
+    anchor: () => E(268, -266, ground(131, -270) - 1),
+    build(g) {
+      const el = ground(131, -270) - 1;
+      g.add(tube([[131, -270], [200, -268], [280, -266], [345, -266], [405, -265]].map(([x, z]) => E(x, z, el)), 1.2, COL.mine, { emissive: 0.5 }));
+      const portal = box(4, 4, 2, COL.mine, { emissive: 0.6, edges: true }); portal.position.copy(E(131, -270, el)); g.add(portal);
+      for (let s = 40; s < 274; s += 40) { const r = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.18, 6, 14), new THREE.MeshStandardMaterial({ color: 0x8a5a2b, emissive: 0x3a2410 })); r.position.copy(E(131 + s, -270 + s * 0.018, el)); r.rotation.y = Math.PI / 2; g.add(r); }
+    },
+  },
+  {
+    id: 'haviland', layer: 'quake', name: 'Haviland Hall seismograph tunnel', status: 'historic',
+    spec: [['Station', 'BRK'], ['Instruments in', 'August 1930'], ['Built as', 'Child hearing/vision test lab'], ['Moved out', '1962, to the Byerly Vault']],
+    summary: 'Under a School of Social Welfare building sits the tunnel where Berkeley recorded the world’s earthquakes, and an H-bomb, for three decades.',
+    facts: [
+      ['The School of Education originally built the sub-basement tunnel as an auditory and visual testing laboratory for schoolchildren.', ['haviland']],
+      ['A late-1920s plan for a vault beneath the Students’ Observatory, entered by tunnel from Haviland’s sub-basement, was killed by the Depression; the existing tunnel on stable bedrock was cheaper and good enough. Seismographs were running there by August 1930.', ['haviland']],
+      ['Edward Teller recalled descending to the Haviland seismograph in 1952 to watch for the first hydrogen bomb test, “Mike,” at Enewetak.', ['haviland']],
+      ['Growing “cultural” noise drove the most sensitive instruments to the new Byerly Vault in Strawberry Canyon in 1962.', ['bks', 'brk']],
+    ],
+    note: 'Tunnel length and direction are illustrative; it is drawn heading toward Observatory Hill.',
+    anchor: () => P(-286, -182, 7),
+    build(g) {
+      g.add(tube([P(-300, -180, 7), P(-285, -182, 7), P(-262, -184, 7)], 1.2, COL.seis, { emissive: 0.6 }));
+      const room = box(6, 3 * Math.min(S.exag, 3), 5, COL.seis, { emissive: 0.6 }); room.position.copy(P(-262, -184, 7)); g.add(room);
+      const b = box(40, 16, 25, COL.ctx, { opacity: 0.18, emissive: 0.1, edges: true }); b.position.copy(P(-300, -180, 0)).add(new THREE.Vector3(0, 8, 0)); g.add(b);
+    },
+  },
+  {
+    id: 'doevault', layer: 'quake', name: 'Early seismograph vault, Doe', status: 'historic',
+    spec: [['Era', 'Early 1900s – 1930'], ['Before it', 'Students’ Observatory, 1897'], ['After it', 'Haviland Hall tunnel']],
+    summary: 'Berkeley’s seismographs started on Observatory Hill and spent their second home in a vault under the new Doe Library.',
+    facts: [
+      ['One of the first seismographs in the western hemisphere was installed in the Students’ Observatory on Observatory Hill in 1897, a couple of hundred feet east of Haviland.', ['haviland']],
+      ['Within a few years the instruments moved to a vault under the new Doe Library, until that space became inadequate.', ['haviland']],
+    ],
+    note: 'The vault’s exact position under Doe is not published; the marker sits under the building centre.',
+    anchor: () => P(-150, -14, 6),
+    build(g) {
+      const v = box(8, 3 * Math.min(S.exag, 3), 8, COL.seis, { emissive: 0.5, opacity: 0.9, edges: true }); v.position.copy(P(-150, -14, 6)); g.add(v);
+      const obs = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 10, 12), new THREE.MeshStandardMaterial({ color: COL.seis, emissive: COL.seis, emissiveIntensity: 0.4, transparent: true, opacity: 0.6 }));
+      obs.position.copy(P(-238, -186, 0)).add(new THREE.Vector3(0, 5, 0)); g.add(obs);
+    },
+  },
+  {
+    id: 'bks', layer: 'quake', name: 'Byerly Seismographic Vault', status: 'documented',
+    spec: [['Station', 'BKS'], ['Built', '1962'], ['Adit', '105 ft, dug toward the NW'], ['Rock', 'Miocene Claremont chert & shale']],
+    summary: 'Today’s Berkeley reference seismometers live in a quiet tunnel dug into the side of Strawberry Canyon, far from footsteps and traffic.',
+    facts: [
+      ['The vault is a 105-ft adit dug horizontally at a northwest azimuth into the side of a hill, in Miocene Claremont cherts and shales.', ['bks']],
+      ['It was built in 1962, funded by the Defense Department, to move instruments away from rising noise at Haviland Hall.', ['bks', 'haviland']],
+      ['The vault is thermally stable, with ventilation and dehumidifying in every room; it also hosts USGS tiltmeters. The BKS digital station has run since May 5, 1987.', ['bks']],
+    ],
+    ride: { route: [[0, 0], [-8, -8], [-16, -16], [-22.6, -22.6]], rel: SITE.bks, elev: true, title: 'Inside the Byerly Vault', radius: 1.3 },
+    anchor: () => { const [x, z] = SITE.bks; return E(x - 11, z - 11, ground(x, z) - 1); },
+    build(g) {
+      const [x, z] = SITE.bks, el = ground(x, z) - 1;
+      g.add(tube([[0, 0], [-8, -8], [-16, -16], [-22.6, -22.6]].map(([dx, dz]) => E(x + dx, z + dz, el)), 1.3, COL.seis, { emissive: 0.6 }));
+      [[-8, -8], [-16, -16], [-22.6, -22.6]].forEach(([dx, dz]) => { const r = box(4, 2.6, 4, COL.seis, { emissive: 0.7 }); r.position.copy(E(x + dx, z + dz, el)); r.rotation.y = Math.PI / 4; g.add(r); });
+      const portal = box(4, 4, 2, COL.seis, { emissive: 0.6, edges: true }); portal.position.copy(E(x, z, el)); portal.rotation.y = Math.PI / 4; g.add(portal);
+    },
+  },
+  {
+    id: 'bart', layer: 'transit', name: 'Downtown Berkeley BART', status: 'approx',
+    spec: [['Opened', 'January 29, 1973'], ['Levels', 'Mezzanine + island platform'], ['Under', 'Shattuck Ave at Center St'], ['Paid for by', 'Berkeley’s 1966 $12M bond']],
+    summary: 'Two blocks west of campus, BART runs in a subway under Shattuck Avenue. It is underground only because Berkeley voters paid extra to bury it.',
+    facts: [
+      ['Downtown Berkeley is an underground station at 2160 Shattuck Avenue that opened on January 29, 1973.', ['bartdb']],
+      ['Like most underground BART stations it has two levels: a mezzanine with the faregates and an island platform serving two tracks.', ['bartdb']],
+      ['In October 1966 Berkeley voters approved a $12 million bond to build BART as a subway, replacing a plan for above-ground lines at Ashby, Downtown and North Berkeley.', ['bartch', 'bartdb']],
+    ],
+    note: 'Station box size, depth and the curve toward North Berkeley are approximate.',
+    ride: { route: [[-906, 1100], [-906, 600], [-906, 196], [-906, -150], [-960, -330], [-1150, -620], [-1300, -800]], depth: 14, title: 'Northbound under Shattuck', radius: 2.4 },
+    anchor: () => P(-906, 196, 12),
+    build(g) {
+      const route = [[-906, 1100], [-906, 600], [-906, 196], [-906, -150], [-960, -330], [-1150, -620], [-1300, -800]];
+      [-4.5, 4.5].forEach(off => g.add(tube(route.map(([x, z]) => P(x + off, z, 14)), 2.4, COL.bart, { emissive: 0.35, curveType: 'catmullrom', tension: 0.4 })));
+      const plat = box(20, 9 * S.exag / 1.5, 200, COL.bart, { opacity: 0.3, emissive: 0.3, edges: true }); plat.position.copy(P(-906, 196, 11)); g.add(plat);
+      const mez = box(24, 0.8, 120, COL.bart, { opacity: 0.6, emissive: 0.3 }); mez.position.copy(P(-906, 196, 5)); g.add(mez);
+      const rot = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 7, 20, 1, true), new THREE.MeshStandardMaterial({ color: COL.bart, emissive: COL.bart, emissiveIntensity: 0.4, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+      rot.position.copy(P(-896, 196, 0)).add(new THREE.Vector3(0, 3.5, 0)); g.add(rot);
+    },
+  },
+];
+const FMAP = Object.fromEntries(FEATURES.map(f => [f.id, f]));
+
+/* Context buildings (surface) */
+const BUILDINGS = [
+  ['Sather Tower', SITE.sather, 11, 93.6, 11], ['Doe Library', SITE.doe, 100, 24, 58], ['Moffitt Library', SITE.moffitt, 52, 14, 52],
+  ['California Hall', SITE.calhall, 46, 15, 24], ['Valley Life Sciences', SITE.vlsb, 105, 22, 62], ['Dwinelle Hall', SITE.dwinelle, 80, 20, 62],
+  ['Wheeler Hall', SITE.wheeler, 82, 22, 30], ['LeConte Hall', SITE.leconte, 60, 18, 30], ['Gilman Hall', SITE.gilman, 50, 17, 24],
+  ['Hearst Mining', SITE.hearstMining, 80, 20, 30], ['Haas Pavilion', SITE.haas, 82, 20, 72], ['Hearst Gym', SITE.hearstGym, 72, 13, 50],
+  ['Faculty Club', SITE.facClub, 32, 10, 20], ['Bowles Hall', SITE.bowles, 62, 16, 20], ['Greek Theatre', SITE.greek, 62, 8, 44],
+];
+
+/* ---------------------------------------------------------------
+   Build scene objects
+---------------------------------------------------------------- */
+const featureGroups = {}, pickables = [], labels = {};
+const ctxGroup = new THREE.Group(); scene.add(ctxGroup);
+const ctxMat = new THREE.MeshStandardMaterial({ color: 0xd8deea, emissive: 0x2a3550, emissiveIntensity: 0.3, roughness: 0.8, transparent: true, opacity: 0.5, clippingPlanes: [], depthWrite: false });
+BUILDINGS.forEach(([name, [x, z], w, h, d]) => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), ctxMat);
+  m.position.set(x, ground(x, z) + h / 2, z); ctxGroup.add(m);
+  const el = document.createElement('div'); el.className = 'lbl ctx'; el.textContent = name;
+  const o = new CSS2DObject(el); o.position.set(x, ground(x, z) + h + 4, z); ctxGroup.add(o);
+});
+
+function disposeTree(o) {
+  o.traverse(c => {
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => { if (m.map) { const i = flowTextures.indexOf(m.map); if (i >= 0) flowTextures.splice(i, 1); m.map.dispose(); } m.dispose(); });
+  });
+}
+function buildFeatures() {
+  pickables.length = 0;
+  FEATURES.forEach(f => {
+    const old = featureGroups[f.id];
+    const visible = old ? old.visible : true;
+    if (old) { scene.remove(old); disposeTree(old); }
+    const g = new THREE.Group(); g.visible = visible;
+    f.build(g);
+    g.traverse(c => { if (c.isMesh) { c.userData.fid = f.id; pickables.push(c); } });
+    scene.add(g); featureGroups[f.id] = g;
+    if (labels[f.id]) labels[f.id].position.copy(f.anchor());
+  });
+  applySelectionGlow();
+}
+FEATURES.forEach(f => {
+  const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl'; el.textContent = f.name;
+  el.style.setProperty('--c', LAYERS.find(l => l.id === f.layer).color);
+  el.addEventListener('click', e => { e.stopPropagation(); select(f.id, true); });
+  el.addEventListener('pointerdown', e => e.stopPropagation());
+  const o = new CSS2DObject(el); labels[f.id] = o; o.userData.el = el; scene.add(o);
+});
+S.offset = 0;
+buildFeatures();
+
+/* ---------------------------------------------------------------
+   UI: layers panel
+---------------------------------------------------------------- */
+const layerList = document.getElementById('layerList');
+document.getElementById('featCount').textContent = `${FEATURES.length} features`;
+const HINT = { steam: '≈4 m deep', cogen: 'since 1987', cec: '2026–30', stacks: '60 ft deep', littleinch: '1,450 ft', biginch: 'post-1964', forks: 'open channel', cityculvert: '≈1 mile', fault: '5 mm/yr', stadium: '6 ft design', adit: '≈900 ft', haviland: '1930–62', doevault: 'pre-1930', bks: '105 ft', bart: '1973' };
+const depthHint = f => HINT[f.id] || '';
+LAYERS.forEach(L => {
+  const wrap = document.createElement('div'); wrap.className = 'layer'; wrap.style.setProperty('--c', L.color);
+  const id = 'layer-' + L.id;
+  wrap.innerHTML = `<label class="layer-head" for="${id}"><span class="swatch"></span><span class="layer-name">${L.name}</span><input class="toggle" type="checkbox" id="${id}" checked></label><div class="feat-list"></div>`;
+  const list = wrap.querySelector('.feat-list');
+  FEATURES.filter(f => f.layer === L.id).forEach(f => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'feat'; b.dataset.fid = f.id;
+    b.innerHTML = `<span>${f.name}</span><span class="d">${depthHint(f)}</span>`;
+    b.addEventListener('click', () => select(f.id, true));
+    list.appendChild(b);
+  });
+  wrap.querySelector('input').addEventListener('change', e => {
+    FEATURES.filter(f => f.layer === L.id).forEach(f => { featureGroups[f.id].visible = e.target.checked; labels[f.id].visible = e.target.checked; });
+    list.style.opacity = e.target.checked ? 1 : 0.4;
+  });
+  layerList.appendChild(wrap);
+});
+
+/* ---------------------------------------------------------------
+   UI: record card
+---------------------------------------------------------------- */
+const info = document.getElementById('info');
+const STATUS_LABEL = { documented: 'Documented', approx: 'Approximate', schematic: 'Schematic', planned: 'Planned', historic: 'Historic' };
+const cite = keys => `<sup>${keys.map(k => `<a href="${SRC[k][1]}" target="_blank" rel="noopener" title="${SRC[k][0].replace(/"/g, '&quot;')}">[${srcNum(k)}]</a>`).join('')}</sup>`;
+function renderIntro() {
+  info.innerHTML = `
+    <div class="eyebrow">Start here</div>
+    <h2>What lies beneath UC Berkeley</h2>
+    <p class="summary">Fifteen features in six layers, from the 1916 mine tunnel to the electric loop going in now. The ground is see-through; drag to orbit, scroll to zoom, right-drag to pan, and go below the surface to look up at it.</p>
+    <dl class="spec">
+      <dt>Click</dt><dd>Any glowing object or label opens its record</dd>
+      <dt>Walk</dt><dd>Tunnels marked “walk” can be ridden first-person</dd>
+      <dt>Slice</dt><dd>Cross-section cuts the ground east–west</dd>
+      <dt>Slip</dt><dd>Fault slip shears the stadium along the fault</dd>
+    </dl>
+    <div class="row"><button class="btn primary" type="button" data-act="tour">Take the 8-stop tour</button><button class="btn" type="button" data-act="ride" data-fid="steam">Walk the steam tunnel</button></div>
+    <p class="note">Depths are stretched ×${S.exag} for readability. Record cards always give the real figures.</p>`;
+  bindInfoButtons();
+}
+function renderFeature(f) {
+  const L = LAYERS.find(l => l.id === f.layer);
+  info.innerHTML = `
+    <button class="close-x" type="button" data-act="close" aria-label="Close record">×</button>
+    <div class="chips"><span class="chip layer-chip" style="--c:${L.color}">${L.name}</span><span class="chip s-${f.status}">${STATUS_LABEL[f.status]}</span></div>
+    <h2>${f.name}</h2>
+    <p class="summary">${f.summary}</p>
+    <dl class="spec">${f.spec.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+    <ul class="facts">${f.facts.map(([t, k]) => `<li>${t}${cite(k)}</li>`).join('')}</ul>
+    ${f.note ? `<p class="note">${f.note}</p>` : ''}
+    <div class="row">${f.ride ? `<button class="btn primary" type="button" data-act="ride" data-fid="${f.id}">Walk it: ${f.ride.title}</button>` : ''}<button class="btn" type="button" data-act="focus" data-fid="${f.id}">Frame in view</button></div>
+    <ol class="sources">${[...new Set(f.facts.flatMap(x => x[1]))].sort((a, b) => srcNum(a) - srcNum(b)).map(k => `<li><b>[${srcNum(k)}]</b><a href="${SRC[k][1]}" target="_blank" rel="noopener">${SRC[k][0]}</a></li>`).join('')}</ol>`;
+  bindInfoButtons();
+}
+function bindInfoButtons() {
+  info.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+    const a = b.dataset.act;
+    if (a === 'close') select(null);
+    if (a === 'focus') focusFeature(b.dataset.fid);
+    if (a === 'ride') startRide(b.dataset.fid);
+    if (a === 'tour') startTour();
+  }));
+}
+
+function applySelectionGlow() {
+  FEATURES.forEach(f => {
+    const g = featureGroups[f.id]; if (!g) return;
+    const on = selected === f.id, dim = selected && !on;
+    g.traverse(c => {
+      if (!c.isMesh || !c.material || !('emissiveIntensity' in c.material)) return;
+      if (c.userData.baseE === undefined) c.userData.baseE = c.material.emissiveIntensity;
+      c.material.emissiveIntensity = on ? Math.min(1.4, c.userData.baseE * 2 + 0.3) : dim ? c.userData.baseE * 0.6 : c.userData.baseE;
+    });
+    labels[f.id].userData.el.classList.toggle('on', on);
+  });
+  document.querySelectorAll('.feat').forEach(b => b.setAttribute('aria-current', String(b.dataset.fid === selected)));
+}
+function select(id, focus = false) {
+  selected = id;
+  if (id) renderFeature(FMAP[id]); else renderIntro();
+  info.hidden = false;
+  applySelectionGlow();
+  if (id && focus) focusFeature(id);
+  if (window.innerWidth <= 860 && id) layersEl.classList.add('collapsed');
+}
+
+/* ---------------------------------------------------------------
+   Camera animation
+---------------------------------------------------------------- */
+let camAnim = null;
+function flyTo(pos, target, dur = 1.3) {
+  if (reduceMotion) dur = 0.01;
+  camAnim = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), t: 0, dur };
+}
+function focusFeature(id) {
+  const g = featureGroups[id];
+  const box3 = new THREE.Box3().setFromObject(g);
+  const c = box3.getCenter(new THREE.Vector3()), size = box3.getSize(new THREE.Vector3());
+  const r = Math.max(size.x, size.z, size.y * 0.6, 30);
+  const dir = camera.position.clone().sub(controls.target); dir.y = 0;
+  if (dir.lengthSq() < 1) dir.set(-1, 0, 1);
+  dir.normalize();
+  const pos = c.clone().add(dir.multiplyScalar(r * 1.25 + 40)).add(new THREE.Vector3(0, r * 0.75 + 40, 0));
+  flyTo(pos, c);
+}
+
+/* ---------------------------------------------------------------
+   Picking + hover
+---------------------------------------------------------------- */
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = document.getElementById('tip');
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hits = ray.intersectObjects(pickables.filter(m => featureGroups[m.userData.fid].visible), false);
+  return hits.length ? FMAP[hits[0].object.userData.fid] : null;
+}
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || ride) return;
+  if (Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  const f = pick(e); if (f) select(f.id, false);
+});
+let hoverRaf = 0;
+renderer.domElement.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse' || ride) return;
+  cancelAnimationFrame(hoverRaf);
+  hoverRaf = requestAnimationFrame(() => {
+    const f = pick(e);
+    if (f) { tip.hidden = false; tip.innerHTML = `<div>${f.name}</div><div class="d">${STATUS_LABEL[f.status]} · click for record</div>`; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; renderer.domElement.style.cursor = 'pointer'; }
+    else { tip.hidden = true; renderer.domElement.style.cursor = ''; }
+  });
+});
+renderer.domElement.addEventListener('pointerleave', () => { tip.hidden = true; });
+
+/* ---------------------------------------------------------------
+   Dock controls
+---------------------------------------------------------------- */
+const $ = id => document.getElementById(id);
+function setXray(v) {
+  const op = 1 - v / 100 * 0.95;
+  terrainMat.opacity = op; terrainMat.depthWrite = op > 0.97; terrainMat.transparent = op < 0.999;
+  strataMat.opacity = Math.max(0.15, op * 0.9 + 0.1);
+  $('xrayOut').textContent = Math.round(v) + '%';
+}
+$('xray').addEventListener('input', e => setXray(+e.target.value));
+setXray(65);
+$('exag').addEventListener('input', e => { S.exag = +e.target.value; $('exagOut').textContent = '×' + S.exag; buildFeatures(); if (!selected) renderIntro(); });
+function setCut(v) {
+  const on = v > 0;
+  const z = T.z1 - (v / 100) * (T.z1 - T.z0) * 0.98;
+  cutPlane.constant = z;
+  const planes = on ? [cutPlane] : [];
+  [terrainMat, ctxMat, strataMat, floorMesh.material].forEach(m => { m.clippingPlanes = planes; m.needsUpdate = true; });
+  updateSection(on ? z : null);
+  $('cutOut').textContent = !on ? 'off' : (z < 0 ? `${Math.round(-z)} m N` : `${Math.round(z)} m S`);
+}
+$('cut').addEventListener('input', e => setCut(+e.target.value));
+$('offset').addEventListener('input', e => {
+  S.offset = +e.target.value;
+  $('offsetOut').textContent = S.offset + ' ft';
+  const eg = featureGroups.stadium.userData.east;
+  eg.position.set(-FDIR.x * S.offset * 0.3048 * 10, 0, -FDIR.y * S.offset * 0.3048 * 10);
+});
+$('labelsBtn').addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+  document.body.classList.toggle('hide-labels', !on);
+});
+$('resetBtn').addEventListener('click', () => flyTo(HOME.pos, HOME.target));
+
+/* About dialog */
+$('sourceList').innerHTML = SRC_KEYS.map(k => `<li><b>[${srcNum(k)}]</b><a href="${SRC[k][1]}" target="_blank" rel="noopener">${SRC[k][0]}</a></li>`).join('');
+$('aboutBtn').addEventListener('click', () => { $('about').hidden = false; $('aboutClose').focus(); });
+$('aboutClose').addEventListener('click', () => { $('about').hidden = true; });
+$('about').addEventListener('click', e => { if (e.target.id === 'about') $('about').hidden = true; });
+
+/* Mobile layers toggle */
+const layersEl = $('layers');
+const mq = window.matchMedia('(max-width: 860px)');
+function syncMobile() {
+  $('layersBtn').hidden = !mq.matches;
+  if (mq.matches) layersEl.classList.add('collapsed');
+}
+function placeLayers() { layersEl.style.top = mq.matches ? '' : (document.getElementById('masthead').getBoundingClientRect().bottom + 12) + 'px'; }
+mq.addEventListener('change', () => { syncMobile(); placeLayers(); }); syncMobile(); placeLayers();
+window.addEventListener('resize', placeLayers);
+if (document.fonts) document.fonts.ready.then(placeLayers);
+$('layersBtn').addEventListener('click', () => {
+  const open = layersEl.classList.toggle('collapsed') === false;
+  $('layersBtn').setAttribute('aria-expanded', String(open));
+  if (open) info.hidden = true; else info.hidden = false;
+});
+
+/* ---------------------------------------------------------------
+   Tour
+---------------------------------------------------------------- */
+const TOUR = [
+  { title: 'The campus, with the ground made glass', text: 'You are looking northeast over UC Berkeley. The dashed gold outline is the central campus; the Campanile is the tall block at the centre. Everything glowing sits below the surface, stretched vertically so shallow tunnels are readable.', view: [HOME.pos, HOME.target] },
+  { title: 'The steam plant and its tunnels', text: 'Orange lines carry steam from the cogeneration plant northwest of Haas Pavilion under the central campus. A 1999 student account traced one passage from a grate near the Campanile under Dwinelle and California Hall to the Life Sciences basement.', fid: 'steam' },
+  { title: 'Four floors under the lawn', text: 'Memorial Glade is the roof of the Gardner Main Stacks: four floors, 60 ft deep, 52 miles of shelves, lit by four skylights and linked by tunnel to Moffitt.', fid: 'stacks' },
+  { title: 'A creek in a pipe under a stadium', text: 'Strawberry Creek’s South Fork was put in a 4-ft culvert when Memorial Stadium was built over it in 1923. After the 1964 floods a bigger bypass took over the canyon’s runoff.', fid: 'littleinch' },
+  { title: 'The Hayward Fault splits the stadium', text: 'The magenta plane is the fault. It creeps about 5 mm a year. Drag the Fault slip slider to see the stadium’s east half shear past the west, the way the 2012 retrofit allows for.', fid: 'stadium', after: () => { $('offset').value = 4; $('offset').dispatchEvent(new Event('input')); } },
+  { title: 'A mine tunnel into the fault', text: 'Mining students began the Lawson Adit in 1916. By about 1939 it ran some 900 ft, far enough to cut the Hayward Fault so George Louderback could study it underground.', fid: 'adit' },
+  { title: 'Listening to the planet', text: 'Seismographs moved from Observatory Hill (1897) to a vault under Doe, then to a tunnel under Haviland Hall (1930), where Edward Teller watched for the first H-bomb test. Since 1962 they sit in the Byerly Vault up Strawberry Canyon.', fid: 'haviland' },
+  { title: 'Where the creek leaves campus', text: 'At Oxford Street the creek dives into a culvert that runs about a mile under Allston Way. Beside it, BART’s Downtown Berkeley station sits under Shattuck, buried because Berkeley voters paid for a subway in 1966.', fid: 'cityculvert' },
+];
+let tourI = -1;
+function showTour(i) {
+  tourI = (i + TOUR.length) % TOUR.length;
+  const s = TOUR[tourI];
+  $('tourCard').hidden = false;
+  $('tourStep').textContent = `Stop ${tourI + 1} of ${TOUR.length}`;
+  $('tourTitle').textContent = s.title; $('tourText').textContent = s.text;
+  $('tourNext').textContent = tourI === TOUR.length - 1 ? 'Finish' : 'Next stop';
+  if (s.fid) { select(s.fid, true); } else { select(null); flyTo(s.view[0], s.view[1]); }
+  if (s.after) s.after();
+}
+function startTour() { if (ride) stopRide(); showTour(0); }
+$('tourBtn').addEventListener('click', startTour);
+$('tourNext').addEventListener('click', () => { if (tourI === TOUR.length - 1) { $('tourCard').hidden = true; tourI = -1; flyTo(HOME.pos, HOME.target); } else showTour(tourI + 1); });
+$('tourPrev').addEventListener('click', () => showTour(tourI - 1));
+$('tourExit').addEventListener('click', () => { $('tourCard').hidden = true; tourI = -1; });
+
+/* ---------------------------------------------------------------
+   First-person tunnel walk
+---------------------------------------------------------------- */
+let ride = null;
+function startRide(fid) {
+  const f = FMAP[fid]; if (!f || !f.ride) return;
+  $('tourCard').hidden = true;
+  const R = f.ride;
+  const pts = R.route.map(([x, z]) => {
+    const [ox, oz] = R.rel || [0, 0];
+    const X = x + ox, Z = z + oz;
+    if (R.elev) { const [px, pz] = R.rel ? R.rel : R.route[0]; return E(X, Z, ground(px, pz) - 1); }
+    return P(X, Z, R.depth);
+  });
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  const len = curve.getLength();
+  ride = { f, curve, len, t: 0, speed: Math.max(4, len / 45), dir: 1, paused: false, saved: { pos: camera.position.clone(), target: controls.target.clone(), xray: +$('xray').value }, look: new THREE.Vector2(0, 0) };
+  controls.enabled = false; camAnim = null;
+  headlamp.intensity = 260;
+  featureGroups[fid].traverse(c => { if (c.isMesh && c.material) { c.userData.rideSave = [c.material.transparent, c.material.opacity, c.material.depthWrite]; c.material.transparent = true; c.material.opacity = Math.min(c.material.opacity, 0.32); c.material.depthWrite = false; } });
+  labels[fid].visible = false;
+  document.body.classList.add('riding');
+  $('rideCard').hidden = false; $('rideTitle').textContent = R.title;
+  const real = R.route.reduce((a, p, i, r) => i ? a + Math.hypot(p[0] - r[i - 1][0], p[1] - r[i - 1][1]) : 0, 0);
+  $('rideStep').textContent = `${f.name} · about ${Math.round(real)} m long`;
+  updateRideSpeed();
+  tip.hidden = true;
+}
+function stopRide() {
+  if (!ride) return;
+  camera.position.copy(ride.saved.pos); controls.target.copy(ride.saved.target);
+  controls.enabled = true; headlamp.intensity = 0;
+  featureGroups[ride.f.id].traverse(c => { if (c.userData.rideSave) { [c.material.transparent, c.material.opacity, c.material.depthWrite] = c.userData.rideSave; delete c.userData.rideSave; } });
+  labels[ride.f.id].visible = featureGroups[ride.f.id].visible;
+  document.body.classList.remove('riding');
+  $('rideCard').hidden = true; info.hidden = false;
+  ride = null; camera.up.set(0, 1, 0); controls.update();
+}
+function updateRideSpeed() { $('rideSpeed').textContent = `${ride.speed.toFixed(0)} m/s`; }
+$('rideExit').addEventListener('click', stopRide);
+$('ridePause').addEventListener('click', e => { ride.paused = !ride.paused; e.currentTarget.setAttribute('aria-pressed', String(ride.paused)); e.currentTarget.textContent = ride.paused ? 'Resume' : 'Pause'; });
+$('rideSlow').addEventListener('click', () => { ride.speed = Math.max(1, ride.speed / 1.5); updateRideSpeed(); });
+$('rideFast').addEventListener('click', () => { ride.speed = Math.min(120, ride.speed * 1.5); updateRideSpeed(); });
+$('rideBack').addEventListener('click', () => { ride.dir *= -1; });
+let lookDrag = null;
+renderer.domElement.addEventListener('pointerdown', e => { if (ride) lookDrag = [e.clientX, e.clientY, ride.look.x, ride.look.y]; });
+window.addEventListener('pointermove', e => { if (ride && lookDrag) { ride.look.x = lookDrag[2] - (e.clientX - lookDrag[0]) * 0.005; ride.look.y = clamp(lookDrag[3] - (e.clientY - lookDrag[1]) * 0.004, -1.2, 1.2); } });
+window.addEventListener('pointerup', () => { lookDrag = null; });
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (ride) stopRide(); else if (!$('about').hidden) $('about').hidden = true; else if (!$('tourCard').hidden) $('tourCard').hidden = true; }
+});
+
+/* ---------------------------------------------------------------
+   HUD
+---------------------------------------------------------------- */
+const needle = $('compassNeedle'), scaleTxt = $('scaleTxt'), scaleBar = $('scaleBar');
+function updateHud() {
+  const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+  needle.style.transform = `rotate(${az * 180 / Math.PI}deg)`;
+  const dist = camera.position.distanceTo(controls.target);
+  const mpp = 2 * dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / window.innerHeight;
+  const target = mpp * 90;
+  const nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(n => n >= target * 0.6) || 2000;
+  scaleBar.style.width = Math.round(nice / mpp) + 'px';
+  scaleTxt.textContent = nice >= 1000 ? `${nice / 1000} km` : `${nice} m`;
+}
+
+/* ---------------------------------------------------------------
+   Loop
+---------------------------------------------------------------- */
+const labelLayer = document.getElementById('labels');
+let declutterTick = 0;
+function declutter() {
+  const els = [...labelLayer.querySelectorAll('.lbl')].filter(e => e.style.display !== 'none');
+  els.sort((a, b) => (b.classList.contains('on') - a.classList.contains('on')) || (a.classList.contains('ctx') - b.classList.contains('ctx')));
+  const placed = [];
+  for (const e of els) {
+    const r = e.getBoundingClientRect();
+    const hit = placed.some(q => r.left < q.right + 3 && r.right > q.left - 3 && r.top < q.bottom + 2 && r.bottom > q.top - 2);
+    e.style.visibility = hit ? 'hidden' : '';
+    if (!hit) placed.push(r);
+  }
+}
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (!reduceMotion) flowTextures.forEach(t => { t.offset.x -= dt * (t.userData.speed || 1) * 0.6; });
+  if (camAnim) {
+    camAnim.t += dt / camAnim.dur;
+    const k = camAnim.t >= 1 ? 1 : 1 - Math.pow(1 - camAnim.t, 3);
+    camera.position.lerpVectors(camAnim.p0, camAnim.p1, k);
+    controls.target.lerpVectors(camAnim.t0, camAnim.t1, k);
+    if (camAnim.t >= 1) camAnim = null;
+  }
+  if (ride) {
+    if (!ride.paused) ride.t = clamp(ride.t + ride.dir * dt * ride.speed / ride.len, 0, 1);
+    if (ride.t >= 1 || ride.t <= 0) ride.dir = ride.t >= 1 ? -1 : 1;
+    const p = ride.curve.getPointAt(ride.t);
+    const ahead = ride.curve.getPointAt(clamp(ride.t + 0.002 * ride.dir, 0, 1));
+    if (ahead.distanceTo(p) < 1e-3) ahead.copy(ride.curve.getPointAt(clamp(ride.t - 0.002, 0, 1))).sub(p).multiplyScalar(-1).add(p);
+    const fwd = ahead.clone().sub(p).normalize();
+    const yaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ride.look.x);
+    fwd.applyQuaternion(yaw);
+    fwd.y += ride.look.y; fwd.normalize();
+    camera.position.copy(p).add(new THREE.Vector3(0, 0.25, 0));
+    camera.lookAt(camera.position.clone().add(fwd));
+    headlamp.position.copy(camera.position);
+    $('rideBar').style.width = (ride.t * 100).toFixed(1) + '%';
+  } else {
+    controls.update();
+  }
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+  if (++declutterTick % 6 === 0) declutter();
+  updateHud();
+  requestAnimationFrame(frame);
+}
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight); labelRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+renderIntro();
+document.getElementById('loading').hidden = true;
+frame();
+window.__underCal = { FEATURES, select, startRide, stopRide, setCut, S };
+</script>
+</body>
+</html>
