@@ -160,6 +160,24 @@ async function shot(app, name) {
       await waitFor(app, (b) => b.activeTab && b.activeTab.title === 'Page B opener=yes', null, { label: 'opener tab' });
     });
 
+    await step('a tab opened by a page survives when that page is closed', async () => {
+      await B(app, (b, url) => b.newTab(url), base + '/a?opener');
+      await waitFor(app, (b) => b.activeTab.url.endsWith('/a?opener') && !b.activeTab.loading, null, { label: 'opener' });
+      await inPage(app, '/a?opener', "window.open('/b?child'); 1", true);
+      await waitFor(app, (b) => b.activeTab.url.endsWith('/b?child') && !b.activeTab.loading, null, { label: 'child' });
+      await B(app, (b) => {
+        b.closeTab(b.allTabs().find((t) => t.url.endsWith('/a?opener')).id);
+        return true;
+      });
+      await sleep(500);
+      assert.equal(await B(app, (b) => !!(b.activeTab.wc && b.activeTab.url.endsWith('/b?child'))), true);
+      await B(app, (b) => {
+        b.closeTab(b.activeTabId);
+        b.activateTab(b.activeSpace.tabs.find((t) => t.url.endsWith('/a')).id);
+        return true;
+      });
+    });
+
     await step('target=_blank links open a new tab next to the opener', async () => {
       await B(app, (b) => b.activateTab(b.activeSpace.tabs.find((t) => t.url.endsWith('/a')).id));
       const n = await B(app, (b) => b.activeSpace.tabs.length);
@@ -188,6 +206,9 @@ async function shot(app, name) {
         await sleep(100);
       }
       assert.equal(count, 2);
+      await sleep(400);
+      const title = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().startsWith('tarun://')).getTitle());
+      assert.match(title, /127\.0\.0\.1/, 'pop-ups show the real site: ' + title);
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.webContents.getURL().startsWith('tarun://')).forEach((w) => w.close()));
     });
 
@@ -372,11 +393,22 @@ async function shot(app, name) {
       assert.equal(await win.locator('.prompt').count(), 0);
     });
 
+    await step('mailto: links ask before opening another app', async () => {
+      await inPage(app, '/geo', "location.href = 'mailto:hello@example.com'; 1", true);
+      await win.waitForSelector('.prompt >> text=another app');
+      await win.locator('.prompt').getByRole('button', { name: 'Block' }).click();
+      await win.waitForSelector('.prompt', { state: 'detached' });
+    });
+
     await step('downloads save to the Downloads folder and show progress', async () => {
       await B(app, (b, url) => b.activeTab.wc.downloadURL(url), base + '/download');
       await waitFor(app, (b) => b.downloads.some((d) => d.state === 'completed'), null, { label: 'download done' });
       const file = await B(app, (b) => b.downloads.find((d) => d.state === 'completed').path);
       assert.equal(fs.readFileSync(file, 'utf8'), 'hello from tarun search');
+      assert.equal(await B(app, (b) => b.downloads.find((d) => d.state === 'completed').risky), false, '.txt can be opened');
+      await B(app, (b, url) => b.activeTab.wc.downloadURL(url), base + '/download?name=setup.scr');
+      await waitFor(app, (b) => b.downloads.some((d) => d.filename.endsWith('.scr') && d.state === 'completed'), null, { label: 'scr download' });
+      assert.equal(await B(app, (b) => b.downloads.find((d) => d.filename.endsWith('.scr')).risky), true, 'programs are only shown in their folder');
       await win.waitForSelector('.dl-name >> text=notes.txt');
     });
 

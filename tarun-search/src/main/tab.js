@@ -5,7 +5,7 @@ const { newId } = require('./store');
 const { safeFaviconUrl, isWebUrl, hostOf } = require('./url');
 
 // Network errors where offering "continue over http" makes sense after an HTTPS upgrade.
-const HTTPS_FALLBACK_ERRORS = new Set([-100, -101, -102, -104, -105, -106, -107, -109, -113, -118, -137, -200, -201, -202, -203, -204, -206, -207, -208, -210, -212, -213, -501]);
+const HTTPS_FALLBACK_ERRORS = new Set([-310, -100, -101, -102, -104, -105, -106, -107, -109, -113, -118, -137, -200, -201, -202, -203, -204, -206, -207, -208, -210, -212, -213, -501]);
 
 function tabWebPreferences(partition) {
   return {
@@ -77,7 +77,7 @@ class Tab {
       id: this.id,
       url: this.url,
       title: this.title || prettyTitle(this.url),
-      favicon: this.favicon,
+      favicon: this.browser.isGhostPartition(this.partition) ? '' : this.favicon, // keeps Ghost sites out of the UI's image cache
       kind: this.kind,
       loading: this.loading,
       sleeping: this.sleeping,
@@ -169,6 +169,24 @@ class Tab {
   wire(wc) {
     this.browser.registerWebContents(wc, this);
     wc.setWindowOpenHandler((details) => this.browser.handleWindowOpen(this, details));
+    wc.on('did-create-window', (popup) => {
+      // Pop-ups (e.g. "Sign in with…") always show the real site in their title bar.
+      popup.__tarunOpener = this.id;
+      const label = () => {
+        const pwc = popup.webContents;
+        if (popup.isDestroyed() || pwc.isDestroyed()) return;
+        const host = hostOf(pwc.getURL()) || 'about:blank';
+        const secure = pwc.getURL().startsWith('https://') ? '🔒 ' : '⚠ Not secure · ';
+        popup.setTitle(`${secure}${host}${pwc.getTitle() && pwc.getTitle() !== pwc.getURL() ? ' — ' + pwc.getTitle().slice(0, 80) : ''}`);
+      };
+      popup.on('page-title-updated', (e) => {
+        e.preventDefault();
+        label();
+      });
+      popup.webContents.on('did-navigate', label);
+      popup.webContents.on('did-navigate-in-page', label);
+      label();
+    });
 
     wc.on('did-start-loading', () => {
       this.loading = true;
@@ -217,7 +235,7 @@ class Tab {
       if (!isMainFrame || code === -3) return; // -3 = aborted (user navigated away)
       if (this.error && this.error.type === 'focus') return;
       const up = this.httpsUpgrade;
-      if (up && validatedURL === up.to && HTTPS_FALLBACK_ERRORS.has(code)) {
+      if (up && hostOf(validatedURL) === hostOf(up.to) && HTTPS_FALLBACK_ERRORS.has(code)) {
         this.error = { type: 'https', url: up.from, host: hostOf(up.from), code, description };
       } else if (code === -20) {
         this.error = { type: 'blocked', url: validatedURL, code, description };
@@ -269,6 +287,7 @@ class Tab {
     wc.on('before-input-event', (event, input) => this.browser.handleInput(event, input));
     wc.on('destroyed', () => {
       if (this.view && this.view.webContents === wc) {
+        this.browser.detachView(this.view);
         this.view = null;
         this.loading = false;
         this.changed();

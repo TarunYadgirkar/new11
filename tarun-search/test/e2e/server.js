@@ -34,7 +34,7 @@ function start() {
         </script>`);
         break;
       case '/download':
-        res.writeHead(200, { 'content-type': 'text/plain', 'content-disposition': 'attachment; filename="notes.txt"' });
+        res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="${/^[\w.-]+$/.test(url.searchParams.get('name') || '') ? url.searchParams.get('name') : 'notes.txt'}"` });
         return res.end('hello from tarun search');
       case '/geo':
         html = page('Geo', `<h1>Geo</h1><script>

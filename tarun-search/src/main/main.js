@@ -7,7 +7,7 @@ const { Store } = require('./store');
 const { Browser } = require('./browser');
 const { registerIpc } = require('./ipc');
 const { buildAppMenu } = require('./menus');
-const { isAllowedNavigation, isWebUrl } = require('./url');
+const { isAllowedNavigation, isWebUrl, externalProtocolOf } = require('./url');
 
 const RENDERER_DIR = path.join(__dirname, '..', 'renderer');
 const MIME = {
@@ -79,7 +79,9 @@ if (!gotLock) {
     wc.on('will-attach-webview', (event) => event.preventDefault());
     wc.on('will-navigate', (event, url) => {
       const target = event.url || url;
-      if (isUi() || !isAllowedNavigation(target)) event.preventDefault();
+      if (isUi()) return event.preventDefault();
+      // mailto:, tel:, zoom… links go on to the "open in another app?" prompt.
+      if (!isAllowedNavigation(target) && !externalProtocolOf(target)) event.preventDefault();
     });
     wc.on('will-redirect', (event, url) => {
       const target = event.url || url;
@@ -87,7 +89,10 @@ if (!gotLock) {
     });
     // Tabs install their own handler; anything else (popups) opens links as tabs.
     wc.setWindowOpenHandler(({ url }) => {
-      if (browser && isWebUrl(url) && !isUi()) setImmediate(() => browser.newTab(url));
+      if (browser && isWebUrl(url) && !isUi()) {
+        const space = browser.spaceForSession(wc.session);
+        setImmediate(() => browser.newTab(url, { spaceId: space ? space.id : undefined }));
+      }
       return { action: 'deny' };
     });
   });

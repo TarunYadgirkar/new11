@@ -330,7 +330,7 @@
             'div',
             { class: 'dl-main' },
             h('div', { class: 'dl-name', text: d.filename, title: d.filename }),
-            h('div', { class: 'dl-sub', text: sub + (d.risky && d.state === 'completed' ? ' · app/installer — open with care' : '') }),
+            h('div', { class: 'dl-sub', text: sub + (d.risky && d.state === 'completed' ? ' · open it from its folder' : '') }),
             d.state === 'progressing' || d.state === 'paused' ? h('div', { class: 'progress' }, h('i', { style: { width: pct + '%' } })) : null,
           ),
           d.state === 'progressing'

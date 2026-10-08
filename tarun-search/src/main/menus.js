@@ -86,7 +86,7 @@ function showPageMenu(browser, tab, params) {
   if (params.linkURL && isWebUrl(params.linkURL)) {
     const link = params.linkURL;
     items.push(
-      { label: 'Open Link in New Tab', click: () => browser.newTab(link, { background: true, spaceId: tab.spaceId || undefined }) },
+      { label: 'Open Link in New Tab', click: () => browser.newTab(link, { background: true, spaceId: browser.spaceIdFor(tab) }) },
       { label: 'Open Link in Peek', click: () => browser.openPeek(link, tab) },
       { label: 'Open Link in Split View', click: () => browser.openSplit(null, link), enabled: tab.kind !== 'peek' && !!browser.activeTab },
       { label: 'Copy Link Address', click: () => clipboard.writeText(link) },
@@ -96,7 +96,7 @@ function showPageMenu(browser, tab, params) {
   if (params.mediaType === 'image' && isWebUrl(params.srcURL)) {
     const src = params.srcURL;
     items.push(
-      { label: 'Open Image in New Tab', click: () => browser.newTab(src, { background: true }) },
+      { label: 'Open Image in New Tab', click: () => browser.newTab(src, { background: true, spaceId: browser.spaceIdFor(tab) }) },
       { label: 'Save Image As…', click: () => wc.downloadURL(src) },
       { label: 'Copy Image', click: () => wc.copyImageAt(params.x, params.y) },
       { label: 'Copy Image Address', click: () => clipboard.writeText(src) },
@@ -127,7 +127,7 @@ function showPageMenu(browser, tab, params) {
     const engine = SEARCH_ENGINES[browser.settings.searchEngine] || SEARCH_ENGINES.duckduckgo;
     items.push(
       { label: 'Copy', click: () => wc.copy() },
-      { label: `Search ${engine.name} for “${truncate(text, 28)}”`, click: () => browser.newTab(searchUrl(text, browser.settings.searchEngine)) },
+      { label: `Search ${engine.name} for “${truncate(text, 28)}”`, click: () => browser.newTab(searchUrl(text, browser.settings.searchEngine), { spaceId: browser.spaceIdFor(tab) }) },
     );
     sep();
   }

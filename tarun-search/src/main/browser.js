@@ -100,6 +100,23 @@ class Browser {
     return s ? s.partition : PERSIST_PARTITION;
   }
 
+  /** The space whose tabs use this session (for links opened from pop-ups). */
+  spaceForSession(ses) {
+    if (ses === session.fromPartition(this.activeSpace.partition)) return this.activeSpace;
+    return this.spaces.find((s) => session.fromPartition(s.partition) === ses) || null;
+  }
+
+  /** Space a tab's follow-up links should open in: the one sharing its session. */
+  spaceIdFor(tab) {
+    if (tab.spaceId && this.spaces.some((s) => s.id === tab.spaceId && s.partition === tab.partition)) return tab.spaceId;
+    const s = this.activeSpace.partition === tab.partition ? this.activeSpace : this.spaces.find((x) => x.partition === tab.partition);
+    return s ? s.id : this.activeSpaceId;
+  }
+
+  isGhostPartition(partition) {
+    return partition !== PERSIST_PARTITION && typeof partition === 'string' && partition.startsWith('ghost-');
+  }
+
   isGhostSession(ses) {
     return this.spaces.some((s) => s.ghost && session.fromPartition(s.partition) === ses);
   }
@@ -546,7 +563,11 @@ class Browser {
     const active = this.activeTab;
     if (!active) return;
     let other = otherId ? this.findTab(otherId) : null;
-    if (!other && input) other = this.newTab(input, { background: true, index: (this.listOf(active) || []).indexOf(active) + 1 });
+    if (!other && input) {
+      const spaceId = active.spaceId || (this.activeSpace.partition === active.partition ? this.activeSpaceId : this.spaces.find((x) => x.partition === active.partition)?.id);
+      const list = this.listOf(active) || [];
+      other = this.newTab(input, { background: true, spaceId, index: active.kind === 'tab' ? list.indexOf(active) + 1 : 0 });
+    }
     if (!other || other.id === active.id || other.kind === 'peek') return;
     if (this.spaceOf(other) && this.spaceOf(active) && this.spaceOf(other).ghost !== this.spaceOf(active).ghost) return;
     this.split = { a: active.id, b: other.id };
@@ -625,6 +646,9 @@ class Browser {
     if (!isAllowedNavigation(url)) return { action: 'deny' };
     const popup = disposition === 'new-window' && /\b(width|height|left|top|popup)\b/i.test(features || '');
     if (popup) {
+      // At most two pop-ups per page at a time, so a site can't flood the screen.
+      const mine = BrowserWindow.getAllWindows().filter((w) => w !== this.win && w.__tarunOpener === opener.id);
+      if (mine.length >= 2) return { action: 'deny' };
       return {
         action: 'allow',
         outlivesOpener: false,
@@ -643,6 +667,7 @@ class Browser {
     if (opener.kind === 'peek' && mode === 'peek') mode = 'foreground';
     return {
       action: 'allow',
+      outlivesOpener: true, // closing or sleeping the opener must never kill this tab
       createWindow: (options) => this.adoptOpened(opener, options, mode, url),
     };
   }
@@ -719,6 +744,7 @@ class Browser {
     this.spaces = this.spaces.filter((x) => x !== s);
     this.closedStack = this.closedStack.filter((c) => c.spaceId !== id);
     if (s.ghost) {
+      delete this.ghostZaps[s.id];
       const ses = session.fromPartition(s.partition);
       ses.clearStorageData().catch(() => {});
       ses.clearCache().catch(() => {});
@@ -732,6 +758,7 @@ class Browser {
   switchSpace(id) {
     const s = this.spaces.find((x) => x.id === id);
     if (!s) return;
+    if (this.peek && this.peek.partition !== s.partition) this.closePeek(false);
     this.activeSpaceId = s.id;
     const t = s.activeTabId && this.findTab(s.activeTabId);
     if (t) this.activateTab(t.id);
@@ -997,7 +1024,8 @@ class Browser {
 
   zapStore(tab) {
     const space = this.spaceOf(tab);
-    return space && space.ghost ? this.ghostZaps : this.data.zaps;
+    if (!space || !space.ghost) return this.data.zaps;
+    return (this.ghostZaps[space.id] = this.ghostZaps[space.id] || {});
   }
 
   async startZap(tab = this.activeTab) {
@@ -1039,7 +1067,7 @@ class Browser {
 
   clearZaps(host) {
     delete this.data.zaps[host];
-    delete this.ghostZaps[host];
+    for (const z of Object.values(this.ghostZaps)) delete z[host];
     for (const t of this.allTabs()) if (t.wc && hostOf(t.url) === host) t.wc.reload();
     this.toast(`Zaps removed for ${host}`);
     this.save();

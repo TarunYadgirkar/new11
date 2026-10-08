@@ -214,10 +214,14 @@ class Store {
   }
 
   /** Debounced atomic write: write tmp file, keep a backup, rename into place. */
-  save(getSnapshot, delay = 800) {
+  save(getSnapshot, delay = 800, maxWait = 5000) {
     this.getSnapshot = getSnapshot;
+    const now = Date.now();
+    if (!this.timer) this.firstPending = now;
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.flush(), delay);
+    // Debounce, but never postpone a write for longer than maxWait.
+    const wait = Math.max(0, Math.min(delay, this.firstPending + maxWait - now));
+    this.timer = setTimeout(() => this.flush(), wait);
   }
 
   flush() {

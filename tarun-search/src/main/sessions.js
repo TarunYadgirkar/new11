@@ -8,7 +8,7 @@ const { shouldBlock } = require('./trackers');
 
 // Permissions granted without asking (harmless, or needed by ordinary sites).
 const AUTO_ALLOW = new Set([
-  'fullscreen', 'clipboard-sanitized-write', 'pointerLock', 'keyboardLock',
+  'fullscreen', 'clipboard-sanitized-write', 'pointerLock',
   'storage-access', 'top-level-storage-access', 'speaker-selection', 'background-sync',
   'persistent-storage',
 ]);
@@ -16,11 +16,12 @@ const AUTO_ALLOW = new Set([
 const ASK = new Set(['media', 'geolocation', 'notifications', 'clipboard-read', 'midi']);
 // Everything else (usb, hid, serial, midiSysex, idle-detection, window-management …) is denied.
 
-// File types that are only ever revealed in the folder, never opened directly.
-const RISKY_EXT = new Set([
-  'exe', 'msi', 'msix', 'bat', 'cmd', 'com', 'scr', 'ps1', 'psm1', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh',
-  'hta', 'cpl', 'jar', 'app', 'dmg', 'pkg', 'mpkg', 'command', 'sh', 'bash', 'zsh', 'run', 'bin', 'deb',
-  'rpm', 'appimage', 'lnk', 'reg', 'scpt', 'workflow', 'iso', 'img', 'dll', 'sys', 'url', 'desktop',
+// Only these file types get an "Open" button. Everything else (apps, installers,
+// scripts, shortcuts, unknown types) is only ever revealed in its folder.
+const SAFE_TO_OPEN = new Set([
+  'pdf', 'txt', 'md', 'csv', 'rtf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'heic', 'bmp', 'tif', 'tiff',
+  'mp3', 'm4a', 'wav', 'flac', 'ogg', 'oga', 'opus', 'aac', 'mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi',
+  'docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp', 'pages', 'numbers', 'key', 'epub',
 ]);
 
 const configured = new WeakSet();
@@ -60,7 +61,8 @@ function configureSession(ses, browser) {
     if (!ASK.has(permission)) return callback(false);
     const origin = originOf(details.requestingUrl || (wc && !wc.isDestroyed() ? wc.getURL() : ''));
     if (!origin) return callback(false);
-    const saved = browser.savedPermission(origin, permission);
+    // Ghost spaces never reuse grants from normal spaces (that would link the two identities).
+    const saved = browser.isGhostSession(ses) ? null : browser.savedPermission(origin, permission);
     if (saved) return callback(saved === 'allow');
     let detail = '';
     if (permission === 'media') {
@@ -74,7 +76,7 @@ function configureSession(ses, browser) {
     if (AUTO_ALLOW.has(permission)) return true;
     if (!ASK.has(permission)) return false;
     const origin = originOf(requestingOrigin);
-    return !!origin && browser.savedPermission(origin, permission) === 'allow';
+    return !!origin && !browser.isGhostSession(ses) && browser.savedPermission(origin, permission) === 'allow';
   });
 
   ses.setDevicePermissionHandler(() => false);
@@ -122,7 +124,7 @@ function configureSession(ses, browser) {
 }
 
 function isRiskyFile(file) {
-  return RISKY_EXT.has(path.extname(file).slice(1).toLowerCase());
+  return !SAFE_TO_OPEN.has(path.extname(file).slice(1).toLowerCase());
 }
 
 module.exports = { configureSession, isRiskyFile, uniquePath, AUTO_ALLOW, ASK, isWebUrl };

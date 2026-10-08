@@ -58,7 +58,7 @@
       "category": "public.app-category.productivity",
       "icon": "build/icon.png",
       "identity": "-",
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "target": [
         {
           "target": "dmg",
@@ -88,7 +88,9 @@
         "NSCameraUsageDescription": "Websites you allow can use your camera, for example for video calls.",
         "NSMicrophoneUsageDescription": "Websites you allow can use your microphone, for example for video calls.",
         "NSLocationUsageDescription": "Websites you allow can see your location, for example for maps."
-      }
+      },
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "dmg": {
       "title": "Tarun Search"
@@ -120,8 +122,7 @@
       "synopsis": "A calm, fast, private browser",
       "mimeTypes": [
         "x-scheme-handler/http",
-        "x-scheme-handler/https",
-        "text/html"
+        "x-scheme-handler/https"
       ],
       "target": [
         {

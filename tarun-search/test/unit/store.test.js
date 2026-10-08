@@ -66,3 +66,22 @@ test('store writes atomically and recovers from a corrupt file', () => {
   assert.equal(new Store(dir).data.settings.theme, 'dark', 'falls back to the backup');
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('saves are debounced but never postponed forever', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tarun-store-'));
+  const store = new Store(dir);
+  let writes = 0;
+  const flush = store.flush.bind(store);
+  store.flush = () => {
+    writes++;
+    flush();
+  };
+  const start = Date.now();
+  while (Date.now() - start < 400) {
+    store.save(() => defaultState(), 100, 200);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  await new Promise((r) => setTimeout(r, 150));
+  assert.ok(writes >= 2, `expected periodic writes, got ${writes}`);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
