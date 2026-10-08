@@ -28,3 +28,9 @@ tunnel corridors connect the documented points along plausible routes. Ground
 relief is a simplified model. Do not use this for navigation or entry — the
 tunnels are off-limits and dangerous. Sources are listed in the app under
 "Sources & accuracy".
+
+---
+
+# Tarun Search (browser)
+
+This repo also contains **[Tarun Search](tarun-search/)**, an Arc-style desktop web browser for macOS, Windows and Linux. It has spaces, a command bar, split view, Peek, auto-archiving tabs, built-in tracker blocking, and three mystery features. Installers are on the [Releases page](https://github.com/tarunyadgirkar/new11/releases/latest). See [tarun-search/README.md](tarun-search/README.md) for details.

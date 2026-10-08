@@ -1,0 +1,101 @@
+name: Tarun Search
+
+# Tests every change, builds installers for macOS, Windows and Linux, and — when
+# you push a tag like v1.0.0 — attaches them to a GitHub Release for download.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths: ['tarun-search/**', '.github/workflows/tarun-search.yml']
+  pull_request:
+    paths: ['tarun-search/**', '.github/workflows/tarun-search.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tarun-search-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+defaults:
+  run:
+    working-directory: tarun-search
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tarun-search/package-lock.json
+      - run: npm ci
+      - name: Audit shipped dependencies
+        run: npm audit --omit=dev --audit-level=low
+      - name: Unit tests
+        run: npm test
+      - name: End-to-end test (real app, virtual display)
+        run: xvfb-run -a npm run test:e2e
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: test
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            args: --mac
+          - name: Windows
+            os: windows-latest
+            args: --win
+          - name: Linux
+            os: ubuntu-latest
+            args: --linux
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write # only used to attach installers to a tagged release
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tarun-search/package-lock.json
+      - run: npm ci
+      - name: Build installers
+        run: npx electron-builder ${{ matrix.args }} --publish never
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Tarun-Search-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            tarun-search/dist/*.dmg
+            tarun-search/dist/*.zip
+            tarun-search/dist/*.exe
+            tarun-search/dist/*.AppImage
+            tarun-search/dist/*.deb
+      - name: Attach installers to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.dmg dist/*.zip dist/*.exe dist/*.AppImage dist/*.deb)
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Tarun Search ${TAG#v}" --notes-file RELEASE_NOTES.md || true
+          gh release upload "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber

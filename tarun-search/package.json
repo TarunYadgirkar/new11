@@ -1,0 +1,145 @@
+{
+  "name": "tarun-search",
+  "productName": "Tarun Search",
+  "version": "1.0.0",
+  "description": "Tarun Search — a calm, fast, private browser with spaces, a command bar, split view, Peek and three mystery features.",
+  "main": "src/main/main.js",
+  "desktopName": "tarun-search.desktop",
+  "author": "Tarun Yadgirkar",
+  "license": "MIT",
+  "private": true,
+  "homepage": "https://github.com/tarunyadgirkar/new11/tree/main/tarun-search",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tarunyadgirkar/new11.git",
+    "directory": "tarun-search"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/unit/*.test.js\"",
+    "test:e2e": "node test/e2e/smoke.js",
+    "icons": "electron scripts/make-icon.js",
+    "dist": "electron-builder --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "playwright-core": "1.64.0"
+  },
+  "build": {
+    "appId": "com.tarunyadgirkar.tarunsearch",
+    "productName": "Tarun Search",
+    "artifactName": "Tarun-Search-${version}-${os}-${arch}.${ext}",
+    "copyright": "Copyright © 2026 Tarun Yadgirkar",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "extendInfo": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "Web site URL",
+            "CFBundleURLSchemes": [
+              "http",
+              "https"
+            ]
+          }
+        ],
+        "NSCameraUsageDescription": "Websites you allow can use your camera, for example for video calls.",
+        "NSMicrophoneUsageDescription": "Websites you allow can use your microphone, for example for video calls.",
+        "NSLocationUsageDescription": "Websites you allow can see your location, for example for maps."
+      }
+    },
+    "dmg": {
+      "title": "Tarun Search"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tarun Search",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Network;WebBrowser",
+      "synopsis": "A calm, fast, private browser",
+      "mimeTypes": [
+        "x-scheme-handler/http",
+        "x-scheme-handler/https",
+        "text/html"
+      ],
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "maintainer": "Tarun Yadgirkar <tarunyadgirkar@users.noreply.github.com>",
+      "syncDesktopName": true
+    },
+    "publish": null
+  }
+}
